@@ -70,7 +70,11 @@ const PatientChat = () => {
         throw patientError;
       }
 
-      setPatient(patientData);
+      // Explicitly cast the status to "active" | "passive"
+      setPatient({
+        ...patientData,
+        status: patientData.status as "active" | "passive"
+      });
 
       // Fetch messages
       const { data: messagesData, error: messagesError } = await supabase
