@@ -69,12 +69,30 @@ const AddPatientPage: React.FC = () => {
       return;
     }
     
+    // Validate required fields before submission
+    if (!data.name || !data.email) {
+      toast({
+        title: "Missing Information",
+        description: "Please provide both name and email to add a patient.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsSubmitting(true);
     
     try {
       const result = await createPatient({
-        ...data,
+        name: data.name,
+        email: data.email,
         doctorId: currentDoctorId,
+        dateOfBirth: data.dateOfBirth,
+        gender: data.gender,
+        notes: data.notes,
+        xrays: data.xrays?.map(xray => ({
+          date: xray.date,
+          scanType: xray.scanType
+        }))
       });
 
       if (!result.success) {
