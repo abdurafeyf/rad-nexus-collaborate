@@ -19,6 +19,7 @@ const MessagesPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [userType, setUserType] = useState<"doctor" | "patient">("doctor");
+  const [currentDoctor, setCurrentDoctor] = useState<any>(null);
   
   useEffect(() => {
     if (user) {
@@ -26,6 +27,29 @@ const MessagesPage = () => {
       setUserType(type);
     }
   }, [user]);
+
+  // Fetch doctor info if user is a doctor
+  useEffect(() => {
+    const fetchDoctorInfo = async () => {
+      if (!user || userType !== "doctor") return;
+      
+      try {
+        const { data, error } = await supabase
+          .from("doctors")
+          .select("*")
+          .eq("user_id", user.id)
+          .single();
+          
+        if (error) throw error;
+        
+        setCurrentDoctor(data);
+      } catch (error: any) {
+        console.error("Error fetching doctor info:", error);
+      }
+    };
+    
+    fetchDoctorInfo();
+  }, [user, userType]);
   
   useEffect(() => {
     const fetchConversations = async () => {
@@ -34,34 +58,21 @@ const MessagesPage = () => {
         
         setIsLoading(true);
         
-        let query;
-        
-        if (userType === "doctor") {
-          // For doctors, fetch all patients they have chatted with
+        if (userType === "doctor" && currentDoctor) {
+          // For doctors, fetch patients they have chatted with
+          // First get all patients assigned to this doctor
           const { data: patients, error: patientsError } = await supabase
-            .from("chats")
-            .select("patient_id")
-            .eq("sender_type", "doctor")
-            .order("created_at", { ascending: false })
-            .limit(100);
+            .from("patients")
+            .select("*")
+            .eq("doctor_id", currentDoctor.id)
+            .order("last_visit", { ascending: false });
             
           if (patientsError) throw patientsError;
           
-          // Get unique patient IDs
-          const uniquePatientIds = [...new Set(patients?.map(p => p.patient_id) || [])];
-          
-          if (uniquePatientIds.length > 0) {
-            // Fetch patient details
-            const { data: patientDetails, error: detailsError } = await supabase
-              .from("patients")
-              .select("*")
-              .in("id", uniquePatientIds);
-              
-            if (detailsError) throw detailsError;
-            
-            // Get the most recent message for each patient
+          if (patients && patients.length > 0) {
+            // For each patient, get their most recent message
             const conversationsWithLastMessage = await Promise.all(
-              (patientDetails || []).map(async (patient) => {
+              patients.map(async (patient) => {
                 const { data: lastMessage } = await supabase
                   .from("chats")
                   .select("*")
@@ -83,8 +94,42 @@ const MessagesPage = () => {
         } else if (userType === "patient") {
           // For patients, show doctors they can message
           // This would need to be implemented based on your data model
-          // Placeholder for now
-          setConversations([]);
+          // Placeholder for now - fetch the assigned doctor
+          const { data: patientData, error: patientError } = await supabase
+            .from("patients")
+            .select("doctor_id")
+            .eq("id", user.user_metadata?.patient_id)
+            .single();
+            
+          if (patientError && !patientError.message.includes("No rows found")) throw patientError;
+          
+          if (patientData?.doctor_id) {
+            const { data: doctorData, error: doctorError } = await supabase
+              .from("doctors")
+              .select("*")
+              .eq("id", patientData.doctor_id)
+              .single();
+              
+            if (doctorError) throw doctorError;
+            
+            const { data: lastMessage } = await supabase
+              .from("chats")
+              .select("*")
+              .eq("patient_id", user.user_metadata?.patient_id)
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            
+            setConversations([
+              {
+                id: doctorData.id,
+                name: `Dr. ${doctorData.first_name} ${doctorData.last_name}`,
+                email: doctorData.email,
+                lastMessage: lastMessage?.message || "No messages",
+                lastMessageTime: lastMessage?.created_at || new Date().toISOString(),
+              },
+            ]);
+          }
         }
       } catch (error) {
         console.error("Error fetching conversations:", error);
@@ -99,18 +144,57 @@ const MessagesPage = () => {
     };
     
     fetchConversations();
-  }, [user, userType, toast]);
+
+    // Set up real-time subscription for new messages
+    let channel: any;
+    
+    if (user && userType === "doctor" && currentDoctor) {
+      channel = supabase
+        .channel('doctor-chats')
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'chats' },
+          (payload) => {
+            // When a new message comes in, refresh conversations
+            fetchConversations();
+          }
+        )
+        .subscribe();
+    } else if (user && userType === "patient") {
+      channel = supabase
+        .channel('patient-chats')
+        .on(
+          'postgres_changes',
+          { 
+            event: 'INSERT', 
+            schema: 'public', 
+            table: 'chats',
+            filter: `patient_id=eq.${user.user_metadata?.patient_id}` 
+          },
+          (payload) => {
+            // When a new message comes in, refresh conversations
+            fetchConversations();
+          }
+        )
+        .subscribe();
+    }
+    
+    return () => {
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+    };
+  }, [user, userType, currentDoctor, toast]);
   
   const filteredConversations = conversations.filter(
     conversation => conversation.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
   
-  const handleConversationClick = (patientId: string) => {
+  const handleConversationClick = (conversationId: string) => {
     if (userType === "doctor") {
-      navigate(`/doctor/patients/${patientId}/chat`);
+      navigate(`/doctor/patients/${conversationId}/chat`);
     } else {
-      // For patient view - adjust as needed
-      // navigate(`/patient/chat/${doctorId}`);
+      navigate(`/patient/chat`);
     }
   };
   

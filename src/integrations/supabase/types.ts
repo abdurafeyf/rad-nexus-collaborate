@@ -157,6 +157,7 @@ export type Database = {
         Row: {
           created_at: string
           date_of_birth: string | null
+          doctor_id: string | null
           email: string
           gender: string | null
           id: string
@@ -168,6 +169,7 @@ export type Database = {
         Insert: {
           created_at?: string
           date_of_birth?: string | null
+          doctor_id?: string | null
           email: string
           gender?: string | null
           id?: string
@@ -179,6 +181,7 @@ export type Database = {
         Update: {
           created_at?: string
           date_of_birth?: string | null
+          doctor_id?: string | null
           email?: string
           gender?: string | null
           id?: string
@@ -187,7 +190,15 @@ export type Database = {
           notes?: string | null
           status?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "patients_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       reports: {
         Row: {

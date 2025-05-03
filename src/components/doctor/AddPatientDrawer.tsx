@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -67,6 +68,7 @@ interface AddPatientDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onPatientAdded: () => void;
+  doctorId?: string;
 }
 
 // Generate a random password of specified length
@@ -185,6 +187,7 @@ const AddPatientDrawer: React.FC<AddPatientDrawerProps> = ({
   open,
   onOpenChange,
   onPatientAdded,
+  doctorId,
 }) => {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -219,6 +222,15 @@ const AddPatientDrawer: React.FC<AddPatientDrawerProps> = ({
   };
 
   const onSubmit = async (data: PatientFormValues) => {
+    if (!doctorId) {
+      toast({
+        title: "Error",
+        description: "Doctor information is not available. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsSubmitting(true);
     
     try {
@@ -256,6 +268,7 @@ const AddPatientDrawer: React.FC<AddPatientDrawerProps> = ({
             date_of_birth: data.dateOfBirth ? data.dateOfBirth.toISOString().split("T")[0] : null,
             gender: data.gender || null,
             notes: data.notes || null,
+            doctor_id: doctorId, // Associate patient with the current doctor
           })
           .select()
           .single();
@@ -522,7 +535,10 @@ const AddPatientDrawer: React.FC<AddPatientDrawerProps> = ({
               </div>
 
               <DrawerFooter className="px-0">
-                <Button type="submit" disabled={isSubmitting}>
+                <Button 
+                  type="submit" 
+                  disabled={isSubmitting || !doctorId}
+                >
                   {isSubmitting ? "Adding..." : "Add Patient"}
                 </Button>
                 <DrawerClose asChild>

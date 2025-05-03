@@ -36,6 +36,7 @@ import Footer from "@/components/Footer";
 import NewSidebar from "@/components/NewSidebar";
 import AddPatientDrawer from "@/components/doctor/AddPatientDrawer";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Define the patient type based on the database schema
 type Patient = {
@@ -48,11 +49,21 @@ type Patient = {
   status: "active" | "passive";
   last_visit: string;
   created_at: string;
+  doctor_id: string;
+};
+
+type Doctor = {
+  id: string;
+  user_id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
 };
 
 const DoctorDashboard = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -61,34 +72,66 @@ const DoctorDashboard = () => {
     key: keyof Patient;
     direction: "asc" | "desc";
   }>({ key: "last_visit", direction: "desc" });
+  const [currentDoctor, setCurrentDoctor] = useState<Doctor | null>(null);
 
-  // Fetch patients data
-  const fetchPatients = async () => {
-    setIsLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from("patients")
-        .select("*");
-
-      if (error) {
-        throw error;
-      }
-
-      setPatients(data as Patient[]);
-    } catch (error: any) {
-      toast({
-        title: "Error fetching patients",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  // First fetch the current doctor's info
   useEffect(() => {
+    const fetchDoctorInfo = async () => {
+      if (!user) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from("doctors")
+          .select("*")
+          .eq("user_id", user.id)
+          .single();
+          
+        if (error) throw error;
+        
+        setCurrentDoctor(data as Doctor);
+      } catch (error: any) {
+        console.error("Error fetching doctor info:", error);
+        toast({
+          title: "Error",
+          description: "Could not fetch doctor information.",
+          variant: "destructive",
+        });
+      }
+    };
+    
+    fetchDoctorInfo();
+  }, [user]);
+
+  // Fetch patients data once we have the doctor's ID
+  useEffect(() => {
+    if (!currentDoctor) return;
+    
+    const fetchPatients = async () => {
+      setIsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from("patients")
+          .select("*")
+          .eq("doctor_id", currentDoctor.id);
+
+        if (error) {
+          throw error;
+        }
+
+        setPatients(data as Patient[]);
+      } catch (error: any) {
+        toast({
+          title: "Error fetching patients",
+          description: error.message,
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
     fetchPatients();
-  }, []);
+  }, [currentDoctor]);
 
   // Handle patient deletion
   const handleDeletePatient = async (id: string) => {
@@ -178,6 +221,33 @@ const DoctorDashboard = () => {
       if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
       return 0;
     });
+
+  // Manual refresh function
+  const fetchPatients = async () => {
+    if (!currentDoctor) return;
+    
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("patients")
+        .select("*")
+        .eq("doctor_id", currentDoctor.id);
+
+      if (error) {
+        throw error;
+      }
+
+      setPatients(data as Patient[]);
+    } catch (error: any) {
+      toast({
+        title: "Error fetching patients",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <NewSidebar type="doctor">
@@ -389,6 +459,7 @@ const DoctorDashboard = () => {
           fetchPatients();
           setIsDrawerOpen(false);
         }}
+        doctorId={currentDoctor?.id}
       />
     </NewSidebar>
   );
