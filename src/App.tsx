@@ -20,6 +20,7 @@ import PatientPortal from "./pages/PatientPortal";
 import PatientReport from "./pages/PatientReport";
 import MessagesPage from "./pages/MessagesPage";
 import AddPatientPage from "./pages/AddPatientPage";
+import PatientChatPage from "./pages/PatientChatPage";
 
 const queryClient = new QueryClient();
 
@@ -103,6 +104,11 @@ const App = () => (
             <Route path="/patient/messages" element={
               <ProtectedRoute userType="patient">
                 <MessagesPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/patient/chat" element={
+              <ProtectedRoute userType="patient">
+                <PatientChatPage />
               </ProtectedRoute>
             } />
             
