@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
@@ -41,7 +42,6 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import NewSidebar from "@/components/NewSidebar";
-import AddPatientDrawer from "@/components/doctor/AddPatientDrawer";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -73,7 +73,6 @@ const DoctorDashboard = () => {
   const { user } = useAuth();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "passive">("all");
   const [sortConfig, setSortConfig] = useState<{
@@ -301,7 +300,7 @@ const DoctorDashboard = () => {
                 Refresh
               </Button>
               <Button
-                onClick={() => setIsDrawerOpen(true)}
+                onClick={() => navigate("/doctor/add-patient")}
                 size="sm"
                 className="flex items-center gap-1"
               >
@@ -496,16 +495,6 @@ const DoctorDashboard = () => {
           </Card>
         </div>
       </div>
-      
-      <AddPatientDrawer 
-        open={isDrawerOpen} 
-        onOpenChange={setIsDrawerOpen}
-        onPatientAdded={() => {
-          fetchPatients();
-          setIsDrawerOpen(false);
-        }}
-        doctorId={currentDoctor?.id}
-      />
     </NewSidebar>
   );
 };

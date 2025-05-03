@@ -20,6 +20,7 @@ import ReportReview from "./pages/ReportReview";
 import PatientPortal from "./pages/PatientPortal";
 import PatientReport from "./pages/PatientReport";
 import MessagesPage from "./pages/MessagesPage";
+import AddPatientPage from "./pages/AddPatientPage";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +42,11 @@ const App = () => (
             <Route path="/doctor/dashboard" element={
               <ProtectedRoute userType="doctor">
                 <DoctorDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/doctor/add-patient" element={
+              <ProtectedRoute userType="doctor">
+                <AddPatientPage />
               </ProtectedRoute>
             } />
             <Route path="/dashboard/doctor" element={
