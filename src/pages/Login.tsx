@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import NavBar from "@/components/NavBar";
 import Footer from "@/components/Footer";
 import FormInput from "@/components/FormInput";
@@ -17,7 +17,8 @@ import { useToast } from "@/components/ui/use-toast";
 import { 
   Hospital,
   User,
-  UserCheck
+  UserCheck,
+  Lock
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -27,14 +28,22 @@ const Login = () => {
   const { userType } = useParams<{ userType: UserType }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
   
-  const [step, setStep] = useState<"email" | "password">("email");
+  const [step, setStep] = useState<"email" | "password" | "changePassword">("email");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
   const [registeredDomains, setRegisteredDomains] = useState<string[]>([]);
   const [isLoadingDomains, setIsLoadingDomains] = useState(false);
+  const [requirePasswordChange, setRequirePasswordChange] = useState(false);
+
+  // Check if there's a reset password token in URL
+  const resetPasswordToken = searchParams.get('reset_password_token');
 
   // Fetch registered domains from Supabase
   useEffect(() => {
@@ -67,6 +76,15 @@ const Login = () => {
     fetchRegisteredDomains();
   }, [userType, toast]);
 
+  // Check if there's a reset token and handle it
+  useEffect(() => {
+    if (resetPasswordToken) {
+      // If there's a reset token, go directly to change password step
+      setStep("changePassword");
+      setRequirePasswordChange(true);
+    }
+  }, [resetPasswordToken]);
+
   const validateEmail = (email: string): boolean => {
     if (!email || !email.includes("@")) {
       setEmailError("Please enter a valid email address");
@@ -86,33 +104,166 @@ const Login = () => {
     return true;
   };
 
-  const handleContinue = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateEmail(email)) {
-      return;
+  const validatePasswordMatch = (): boolean => {
+    if (newPassword !== confirmPassword) {
+      setPasswordError("Passwords do not match");
+      return false;
     }
     
+    if (newPassword.length < 8) {
+      setPasswordError("Password must be at least 8 characters long");
+      return false;
+    }
+    
+    setPasswordError("");
+    return true;
+  };
+
+  const handleContinue = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
     if (step === "email") {
+      if (!validateEmail(email)) {
+        return;
+      }
+      
       // Proceed to password step if email is valid
       setStep("password");
-    } else {
-      // Process login if on password step
-      setLoading(true);
-      
-      // Simulate API call
-      setTimeout(() => {
-        setLoading(false);
+    } else if (step === "password") {
+      await handleLogin();
+    } else if (step === "changePassword") {
+      await handlePasswordChange();
+    }
+  };
+
+  const handleLogin = async () => {
+    if (!email || !password) return;
+    
+    setLoading(true);
+    
+    try {
+      // Sign in with email and password
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      // Check if this might be a patient's first login (temporary password)
+      if (userType === "patient") {
+        // We'll consider it's a first login if the password is "temporary" or matches our pattern
+        // In a real app, you'd have a flag in the database to track this
+        // For now, let's simulate this with a check
+        const isTemporaryPassword = password.length >= 10 && 
+          /[A-Z]/.test(password) && 
+          /[a-z]/.test(password) && 
+          /[0-9]/.test(password) &&
+          /[!@#$%^&*()_+]/.test(password);
         
-        // Show success toast
+        if (isTemporaryPassword) {
+          setRequirePasswordChange(true);
+          setStep("changePassword");
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Check if doctor email is verified (you'd want to check this in a production app)
+      if (userType === "doctor" && !data.user?.email_confirmed_at) {
+        // In a real app with proper flow, you'd handle unverified doctor emails
+        // For now, we'll just show a toast but let them through
         toast({
-          title: "Login Successful",
-          description: `Logged in as ${userType} with email ${email}`,
+          title: "Email Not Verified",
+          description: "Please check your email to verify your account.",
+          variant: "warning",
         });
-        
-        // Redirect to appropriate dashboard based on user type
-        navigate(`/dashboard/${userType}`);
-      }, 1500);
+      }
+
+      toast({
+        title: "Login Successful",
+        description: `Welcome back! You're now logged in.`,
+      });
+      
+      // Redirect to appropriate dashboard based on user type
+      navigate(`/${userType}/dashboard`);
+    } catch (error: any) {
+      toast({
+        title: "Login Failed",
+        description: error.message || "An error occurred during login.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePasswordChange = async () => {
+    if (!validatePasswordMatch()) {
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // If it's from a reset token
+      if (resetPasswordToken) {
+        // Update password using the token
+        const { error } = await supabase.auth.updateUser({
+          password: newPassword
+        });
+
+        if (error) throw error;
+      } else {
+        // Update password while logged in (first-time login case)
+        const { error } = await supabase.auth.updateUser({
+          password: newPassword
+        });
+
+        if (error) throw error;
+      }
+
+      toast({
+        title: "Password Updated",
+        description: "Your password has been successfully updated.",
+      });
+      
+      // Redirect to dashboard
+      navigate(`/${userType}/dashboard`);
+    } catch (error: any) {
+      toast({
+        title: "Password Update Failed",
+        description: error.message || "An error occurred while updating password.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Send verification email to doctor
+  const sendVerificationEmail = async () => {
+    if (!email) return;
+    
+    try {
+      const { error } = await supabase.auth.resendConfirmationEmail({
+        email,
+      });
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Verification Email Sent",
+        description: "Please check your inbox to verify your account.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Failed to Send Verification Email",
+        description: error.message || "Please try again later.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -157,10 +308,16 @@ const Login = () => {
             <Card className="border-brand-100 shadow-lg">
               <CardHeader className="text-center">
                 <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-brand-50 text-brand-600">
-                  {icon}
+                  {step === "changePassword" ? <Lock className="h-6 w-6 text-brand-600" /> : icon}
                 </div>
-                <CardTitle className="text-2xl font-bold text-gray-800">{title}</CardTitle>
-                <CardDescription className="text-gray-600">{description}</CardDescription>
+                <CardTitle className="text-2xl font-bold text-gray-800">
+                  {step === "changePassword" ? "Create New Password" : title}
+                </CardTitle>
+                <CardDescription className="text-gray-600">
+                  {step === "changePassword" 
+                    ? "Please create a strong password for your account" 
+                    : description}
+                </CardDescription>
               </CardHeader>
               <form onSubmit={handleContinue}>
                 <CardContent className="space-y-4">
@@ -176,7 +333,7 @@ const Login = () => {
                       autoFocus
                       disabled={isLoadingDomains}
                     />
-                  ) : (
+                  ) : step === "password" ? (
                     <>
                       <div className="rounded-md bg-gray-50 p-3 text-sm">
                         <div className="font-medium">{email}</div>
@@ -208,13 +365,42 @@ const Login = () => {
                         </button>
                       </div>
                     </>
+                  ) : (
+                    <>
+                      <p className="text-sm text-gray-600">
+                        {requirePasswordChange 
+                          ? "You need to change your temporary password to continue." 
+                          : "Create a new secure password for your account."}
+                      </p>
+                      <FormInput
+                        label="New Password"
+                        id="new-password"
+                        type="password"
+                        placeholder="Enter new password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        autoFocus
+                      />
+                      <FormInput
+                        label="Confirm Password"
+                        id="confirm-password"
+                        type="password"
+                        placeholder="Confirm new password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        error={passwordError}
+                      />
+                    </>
                   )}
                 </CardContent>
                 <CardFooter className="flex-col space-y-2">
                   <Button
                     type="submit"
                     className="w-full bg-brand-600 hover:bg-brand-700"
-                    disabled={loading || isLoadingDomains || (step === "email" ? !email : !password)}
+                    disabled={loading || isLoadingDomains || 
+                      (step === "email" ? !email : 
+                       step === "password" ? !password :
+                       !newPassword || !confirmPassword)}
                   >
                     {loading
                       ? "Processing..."
@@ -222,10 +408,24 @@ const Login = () => {
                       ? "Loading..."
                       : step === "email"
                       ? "Continue"
-                      : "Log In"}
+                      : step === "password"
+                      ? "Log In"
+                      : "Set New Password"}
                   </Button>
                   
-                  {userType === "patient" && (
+                  {userType === "doctor" && step === "password" && (
+                    <div className="text-center text-xs text-gray-600">
+                      <button
+                        type="button"
+                        className="font-medium text-brand-600 hover:text-brand-800"
+                        onClick={sendVerificationEmail}
+                      >
+                        Resend verification email
+                      </button>
+                    </div>
+                  )}
+                  
+                  {userType === "patient" && step === "email" && (
                     <div className="text-center text-xs text-gray-600">
                       Don't have an account?{" "}
                       <button
