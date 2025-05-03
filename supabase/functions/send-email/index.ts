@@ -34,6 +34,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Attempting to send email to:", to);
     console.log("Email subject:", subject);
+    console.log("Using RESEND_API_KEY:", Deno.env.get("RESEND_API_KEY") ? "API key is set" : "API key is missing");
 
     const { data, error } = await resend.emails.send({
       from,

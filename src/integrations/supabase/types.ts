@@ -293,6 +293,7 @@ export type Database = {
           file_path: string | null
           id: string
           patient_id: string
+          scan_type: string | null
         }
         Insert: {
           created_at?: string
@@ -300,6 +301,7 @@ export type Database = {
           file_path?: string | null
           id?: string
           patient_id: string
+          scan_type?: string | null
         }
         Update: {
           created_at?: string
@@ -307,6 +309,7 @@ export type Database = {
           file_path?: string | null
           id?: string
           patient_id?: string
+          scan_type?: string | null
         }
         Relationships: [
           {

@@ -31,17 +31,20 @@ export const createPatientAuth = async ({ email, password }: PatientAuthParams) 
     console.log("Creating patient auth account for:", email);
     
     // First, check if a user with this email already exists
-    const { data: existingUser } = await supabase.auth.signInWithPassword({
-      email,
-      password: 'dummy-password-for-check-only' // This will fail if user exists, but that's expected
-    });
-    
-    if (existingUser?.user) {
+    const { data: existingUsers, error: checkError } = await supabase
+      .from("auth.users")
+      .select("id")
+      .eq("email", email);
+      
+    if (checkError) {
+      console.log("Error checking existing user:", checkError);
+      // Continue with signup as we can't confirm if user exists
+    } else if (existingUsers && existingUsers.length > 0) {
       console.log("User already exists, not creating a new one");
-      return { success: true, userId: existingUser.user.id, userExists: true };
+      return { success: true, userId: existingUsers[0].id, userExists: true };
     }
     
-    // Create the auth user - use regular signUp as we don't have access to admin.createUser in the client
+    // Create the auth user
     const { data, error } = await supabase.auth.signUp({
       email: email,
       password: password,
@@ -52,7 +55,10 @@ export const createPatientAuth = async ({ email, password }: PatientAuthParams) 
       }
     });
     
-    if (error) throw error;
+    if (error) {
+      console.error("Error in signUp:", error);
+      throw error;
+    }
     
     console.log("Patient auth created successfully:", data.user?.id);
     return { success: true, userId: data.user?.id, userExists: false };
@@ -97,7 +103,7 @@ export const sendPatientWelcomeEmail = async (
       </div>
     `;
 
-    // Call the send-email function
+    // Call the send-email edge function with the full URL
     const response = await fetch(`https://ruueewpswsmmagpsxbvk.supabase.co/functions/v1/send-email`, {
       method: "POST",
       headers: {
@@ -112,10 +118,13 @@ export const sendPatientWelcomeEmail = async (
 
     if (!response.ok) {
       const errorData = await response.json();
+      console.error("Email API error response:", errorData);
       throw new Error(errorData.error || "Failed to send email");
     }
 
-    return await response.json();
+    const result = await response.json();
+    console.log("Email sending result:", result);
+    return result;
   } catch (error) {
     console.error("Error sending email:", error);
     throw error;
