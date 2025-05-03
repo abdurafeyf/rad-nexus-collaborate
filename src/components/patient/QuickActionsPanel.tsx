@@ -3,7 +3,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, Phone, Upload, AlertCircle } from "lucide-react";
+import { MessageSquare, Phone, AlertCircle } from "lucide-react";
 
 const QuickActionsPanel: React.FC = () => {
   const navigate = useNavigate();
@@ -21,7 +21,7 @@ const QuickActionsPanel: React.FC = () => {
             onClick={() => navigate("/patient/chat")}
           >
             <MessageSquare className="mr-2 h-4 w-4" />
-            <span className="truncate">Chat with Doctor</span>
+            <span>Chat with Doctor</span>
           </Button>
           
           <Button 
@@ -29,16 +29,7 @@ const QuickActionsPanel: React.FC = () => {
             className="w-full justify-start rounded-lg border-teal-200 text-teal-600 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-300"
           >
             <Phone className="mr-2 h-4 w-4" />
-            <span className="truncate">Request Follow-Up</span>
-          </Button>
-          
-          <Button 
-            variant="outline" 
-            className="w-full justify-start rounded-lg border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300"
-            onClick={() => navigate("/doctor/patients/:patientId/scan/upload")}
-          >
-            <Upload className="mr-2 h-4 w-4" />
-            <span className="truncate">Upload New Scan</span>
+            <span>Request Follow-Up</span>
           </Button>
           
           <Button 
@@ -46,7 +37,7 @@ const QuickActionsPanel: React.FC = () => {
             className="w-full justify-start rounded-lg border-amber-200 text-amber-600 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300"
           >
             <AlertCircle className="mr-2 h-4 w-4" />
-            <span className="truncate">Report an Issue</span>
+            <span>Report an Issue</span>
           </Button>
         </div>
       </CardContent>

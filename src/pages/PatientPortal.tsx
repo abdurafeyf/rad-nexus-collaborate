@@ -1,6 +1,7 @@
+
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Calendar, FileText, MessageSquare, ChevronRight, Download, Upload, Phone, Bell } from "lucide-react";
+import { Calendar, FileText, MessageSquare, Download, Phone, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
@@ -229,7 +230,7 @@ const PatientPortal = () => {
               <h1 className="text-3xl font-bold mb-1 text-gray-900">
                 Welcome, <span className="border-b-2 border-teal-500 pb-1">{patientName}</span>
               </h1>
-              <p className="text-gray-600">Track your radiology journey and healthcare records</p>
+              <p className="text-gray-700">Track your radiology journey and healthcare records</p>
             </div>
             
             {/* Action buttons */}
@@ -364,21 +365,10 @@ const PatientPortal = () => {
                   <div className="relative space-y-6 before:absolute before:inset-0 before:left-9 before:h-full before:border-l-2 before:border-dashed before:border-gray-200 pl-12 md:pl-0 md:ml-9">
                     {cases.length === 0 ? (
                       <div className="text-center py-8">
-                        <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-gray-100 mb-4">
-                          <FileText className="h-8 w-8 text-gray-400" />
-                        </div>
-                        <h3 className="text-lg font-medium text-gray-700 mb-2">No medical records yet</h3>
-                        <p className="text-gray-500 mb-4">Upload your first scan to get started</p>
-                        <Button
-                          onClick={() => navigate("/doctor/patients/:patientId/scan/upload")}
-                          className="bg-teal-500 hover:bg-teal-600 rounded-lg"
-                        >
-                          <Upload className="mr-2 h-4 w-4" />
-                          Upload Your First Scan
-                        </Button>
+                        <p className="text-gray-500">No records available at this time.</p>
                       </div>
                     ) : (
-                      cases.map((caseItem, index) => (
+                      cases.map((caseItem) => (
                         <div key={caseItem.id} className="relative">
                           {/* Timeline dot */}
                           <div className="absolute -left-9 top-6 h-4 w-4 rounded-full bg-white border-2 border-teal-500"></div>
@@ -492,11 +482,6 @@ const PatientPortal = () => {
               <Button variant="ghost" size="sm" className="flex-col gap-1">
                 <Phone className="h-5 w-5" />
                 <span className="text-xs">Follow-Up</span>
-              </Button>
-              
-              <Button variant="ghost" size="sm" className="flex-col gap-1">
-                <Upload className="h-5 w-5" />
-                <span className="text-xs">Upload</span>
               </Button>
             </div>
           )}
