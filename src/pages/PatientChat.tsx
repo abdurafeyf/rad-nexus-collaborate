@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Send, Paperclip, Mic, User } from "lucide-react";
@@ -43,8 +42,10 @@ const PatientChat = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isSending, setIsSending] = useState(false);
   const [patient, setPatient] = useState<Patient | null>(null);
   const [currentDoctor, setCurrentDoctor] = useState<Doctor | null>(null);
+  const [typingStatus, setTypingStatus] = useState<boolean>(false);
 
   // Fetch doctor information
   useEffect(() => {
@@ -128,21 +129,68 @@ const PatientChat = () => {
     
     fetchMessages();
     
-    // Set up real-time subscription for new messages
+    // Enhanced real-time subscription
     const channel = supabase
       .channel('chats-channel')
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'chats', filter: `patient_id=eq.${patientId}` },
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'chats', 
+          filter: `patient_id=eq.${patientId}` 
+        },
         (payload) => {
-          const newMessage = payload.new as Message;
-          setMessages(prevMessages => [...prevMessages, newMessage]);
+          if (payload.eventType === 'INSERT') {
+            const newMessage = payload.new as Message;
+            // Only add the message if it's not from the current user
+            // or if it's not the optimistic message we just added
+            setMessages(prevMessages => {
+              const isDuplicate = prevMessages.some(msg => 
+                msg.id === newMessage.id || 
+                (msg.id === `temp-${newMessage.id}` && msg.sender_type === "doctor")
+              );
+              return isDuplicate ? prevMessages : [...prevMessages, newMessage];
+            });
+          } else if (payload.eventType === 'UPDATE') {
+            const updatedMessage = payload.new as Message;
+            setMessages(prevMessages => 
+              prevMessages.map(msg => 
+                msg.id === updatedMessage.id ? updatedMessage : msg
+              )
+            );
+          }
         }
       )
       .subscribe();
       
     return () => {
       supabase.removeChannel(channel);
+    };
+  }, [patientId]);
+  
+  // Typing indicator subscription
+  useEffect(() => {
+    if (!patientId) return;
+    
+    const typingChannel = supabase
+      .channel('typing-channel')
+      .on(
+        'postgres_changes',
+        { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'patients', 
+          filter: `id=eq.${patientId}` 
+        },
+        (payload) => {
+          setTypingStatus(payload.new.is_typing);
+        }
+      )
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(typingChannel);
     };
   }, [patientId]);
   
@@ -154,27 +202,51 @@ const PatientChat = () => {
   const sendMessage = async () => {
     if (newMessage.trim() === "" || !patientId || !currentDoctor) return;
     
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMessage: Message = {
+      id: tempId,
+      message: newMessage.trim(),
+      sender_type: "doctor",
+      created_at: new Date().toISOString(),
+      file_path: null,
+      file_type: null,
+      is_voice_note: false
+    };
+    
+    // Optimistic update
+    setMessages(prev => [...prev, optimisticMessage]);
+    setNewMessage("");
+    setIsSending(true);
+    
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("chats")
         .insert({
           patient_id: patientId,
           message: newMessage.trim(),
           sender_type: "doctor",
-        });
+        })
+        .select()
+        .single();
         
       if (error) throw error;
       
-      // Clear input after sending
-      setNewMessage("");
+      // Replace optimistic message with real one
+      setMessages(prev => 
+        prev.map(msg => msg.id === tempId ? data : msg)
+      );
       
     } catch (error: any) {
       console.error("Error sending message:", error);
+      // Remove optimistic message on error
+      setMessages(prev => prev.filter(msg => msg.id !== tempId));
       toast({
         title: "Error",
         description: "Failed to send message.",
         variant: "destructive"
       });
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -185,21 +257,44 @@ const PatientChat = () => {
     }
   };
 
+  const groupMessagesByDate = (messages: Message[]) => {
+    const groups: { [key: string]: Message[] } = {};
+    
+    messages.forEach(message => {
+      const date = format(new Date(message.created_at), 'yyyy-MM-dd');
+      if (!groups[date]) {
+        groups[date] = [];
+      }
+      groups[date].push(message);
+    });
+    
+    return groups;
+  };
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(part => part[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
   return (
     <NewSidebar type="doctor">
       <div className="flex h-screen flex-col bg-gray-50">
-        {/* Chat header */}
-        <div className="border-b bg-white p-4">
+        {/* Sticky header */}
+        <div className="sticky top-0 z-10 border-b bg-white/80 backdrop-blur-sm p-4">
           <div className="container mx-auto max-w-4xl">
-            <div className="mb-4 flex items-center">
+            <div className="flex items-center">
               <Button
                 variant="ghost"
                 onClick={() => navigate(-1)}
-                className="-ml-3"
+                className="-ml-3 hover:bg-gray-100"
               >
                 <ArrowLeft className="h-5 w-5" />
               </Button>
-              <h2 className="ml-2 text-xl font-bold">
+              <h2 className="ml-2 text-lg font-semibold text-gray-900">
                 Chat with {patient?.name || "Patient"}
               </h2>
             </div>
@@ -224,46 +319,99 @@ const PatientChat = () => {
                 </p>
               </div>
             ) : (
-              <div className="space-y-4">
-                {messages.map((msg) => {
-                  const isDoctor = msg.sender_type === "doctor";
-                  
-                  return (
-                    <div
-                      key={msg.id}
-                      className={`flex ${isDoctor ? "justify-end" : "justify-start"}`}
-                    >
-                      <div
-                        className={`max-w-[80%] rounded-2xl px-4 py-2 ${
-                          isDoctor
-                            ? "bg-teal-500 text-white"
-                            : "bg-white shadow-subtle"
-                        }`}
-                      >
-                        {msg.message && <p className="whitespace-pre-wrap">{msg.message}</p>}
-                        {msg.file_path && (
-                          <div className="mt-2">
-                            <a
-                              href={msg.file_path}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-sm underline"
-                            >
-                              View attachment
-                            </a>
-                          </div>
-                        )}
-                        <div
-                          className={`mt-1 text-xs ${
-                            isDoctor ? "text-teal-100" : "text-gray-400"
-                          }`}
-                        >
-                          {format(new Date(msg.created_at), "h:mm a")}
-                        </div>
+              <div className="space-y-6">
+                {Object.entries(groupMessagesByDate(messages)).map(([date, dateMessages]) => (
+                  <div key={date} className="space-y-4">
+                    <div className="flex justify-center">
+                      <div className="rounded-full bg-gray-50 border border-gray-100 px-4 py-1 text-sm text-gray-500">
+                        {format(new Date(date), 'MMMM d, yyyy')}
                       </div>
                     </div>
-                  );
-                })}
+                    {dateMessages.map((msg) => {
+                      const isDoctor = msg.sender_type === "doctor";
+                      const senderName = isDoctor 
+                        ? `Dr. ${currentDoctor?.first_name} ${currentDoctor?.last_name}`
+                        : patient?.name || "Patient";
+                      
+                      return (
+                        <div
+                          key={msg.id}
+                          className={`flex items-end gap-2 ${isDoctor ? "justify-end" : "justify-start"}`}
+                        >
+                          {!isDoctor && (
+                            <div 
+                              className="group relative flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-600"
+                              title={senderName}
+                            >
+                              <span className="text-xs font-medium">
+                                {getInitials(senderName)}
+                              </span>
+                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs bg-white rounded-md shadow-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
+                                {senderName}
+                              </div>
+                            </div>
+                          )}
+                          <div 
+                            className={`group flex max-w-[80%] flex-col ${isDoctor ? "items-end" : "items-start"}`}
+                          >
+                            <div
+                              className={`rounded-2xl px-4 py-2 transition-all duration-200 hover:scale-[1.02] ${
+                                isDoctor
+                                  ? "bg-teal-500 text-white"
+                                  : "bg-gray-100 text-gray-900"
+                              }`}
+                            >
+                              {msg.message && <p className="whitespace-pre-wrap">{msg.message}</p>}
+                              {msg.file_path && (
+                                <div className="mt-2">
+                                  <a
+                                    href={msg.file_path}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-sm underline"
+                                  >
+                                    View attachment
+                                  </a>
+                                </div>
+                              )}
+                              <div
+                                className={`mt-1 text-xs ${
+                                  isDoctor ? "text-teal-100" : "text-gray-400"
+                                }`}
+                              >
+                                {format(new Date(msg.created_at), "h:mm a")}
+                              </div>
+                            </div>
+                          </div>
+                          {isDoctor && (
+                            <div 
+                              className="group relative flex h-8 w-8 items-center justify-center rounded-full bg-teal-100 text-teal-500"
+                              title={senderName}
+                            >
+                              <span className="text-xs font-medium">
+                                {getInitials(senderName)}
+                              </span>
+                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs bg-white rounded-md shadow-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
+                                {senderName}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+                {typingStatus && (
+                  <div className="flex justify-start">
+                    <div className="max-w-[80%] rounded-2xl bg-gray-100 px-4 py-2">
+                      <div className="flex space-x-1">
+                        <div className="h-2 w-2 animate-bounce rounded-full bg-gray-400"></div>
+                        <div className="h-2 w-2 animate-bounce rounded-full bg-gray-400" style={{ animationDelay: '0.2s' }}></div>
+                        <div className="h-2 w-2 animate-bounce rounded-full bg-gray-400" style={{ animationDelay: '0.4s' }}></div>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <div ref={messageEndRef} />
               </div>
             )}
@@ -274,7 +422,7 @@ const PatientChat = () => {
         <div className="border-t bg-white p-4">
           <div className="container mx-auto max-w-4xl">
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" className="shrink-0">
+              <Button variant="ghost" size="icon" className="shrink-0 hover:bg-gray-100">
                 <Paperclip className="h-5 w-5 text-gray-500" />
               </Button>
               <Input
@@ -282,14 +430,19 @@ const PatientChat = () => {
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyDown={handleKeyDown}
-                className="flex-1 border-gray-200"
+                className="flex-1 border-gray-200 focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                disabled={isSending}
               />
               <Button
                 onClick={sendMessage}
-                disabled={!newMessage.trim()}
-                className="shrink-0 bg-teal-500 hover:bg-teal-600"
+                disabled={!newMessage.trim() || isSending}
+                className="shrink-0 h-10 w-10 rounded-full bg-teal-500 hover:bg-teal-600"
               >
-                <Send className="h-5 w-5" />
+                {isSending ? (
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                ) : (
+                  <Send className="h-5 w-5" />
+                )}
               </Button>
             </div>
           </div>
