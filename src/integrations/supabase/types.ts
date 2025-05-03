@@ -196,6 +196,7 @@ export type Database = {
           email: string
           gender: string | null
           id: string
+          is_typing: boolean | null
           last_visit: string
           name: string
           notes: string | null
@@ -208,6 +209,7 @@ export type Database = {
           email: string
           gender?: string | null
           id?: string
+          is_typing?: boolean | null
           last_visit?: string
           name: string
           notes?: string | null
@@ -220,6 +222,7 @@ export type Database = {
           email?: string
           gender?: string | null
           id?: string
+          is_typing?: boolean | null
           last_visit?: string
           name?: string
           notes?: string | null
@@ -312,6 +315,13 @@ export type Database = {
           uploaded_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "scans_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "scans_patient_id_fkey"
             columns: ["patient_id"]

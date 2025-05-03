@@ -24,6 +24,7 @@ type Patient = {
   id: string;
   name: string;
   email: string;
+  is_typing?: boolean;
 };
 
 type Doctor = {
@@ -54,7 +55,7 @@ const PatientChatPage = () => {
       try {
         const { data, error } = await supabase
           .from("patients")
-          .select("id, name, email, doctor_id")
+          .select("id, name, email, doctor_id, is_typing")
           .eq("email", user.email)
           .single();
         
@@ -172,11 +173,13 @@ const PatientChatPage = () => {
     setIsSending(true);
     
     try {
-      // Update patient typing status
-      await supabase
-        .from("patients")
-        .update({ is_typing: true })
-        .eq("id", patient.id);
+      // Update patient typing status if the patient object exists and has an id
+      if (patient?.id) {
+        await supabase
+          .from("patients")
+          .update({ is_typing: true })
+          .eq("id", patient.id);
+      }
       
       const { data, error } = await supabase
         .from("chats")
@@ -195,11 +198,13 @@ const PatientChatPage = () => {
         prev.map(msg => msg.id === tempId ? data : msg)
       );
       
-      // Reset typing status
-      await supabase
-        .from("patients")
-        .update({ is_typing: false })
-        .eq("id", patient.id);
+      // Reset typing status if the patient object exists and has an id
+      if (patient?.id) {
+        await supabase
+          .from("patients")
+          .update({ is_typing: false })
+          .eq("id", patient.id);
+      }
       
     } catch (error: any) {
       console.error("Error sending message:", error);
@@ -211,7 +216,7 @@ const PatientChatPage = () => {
         variant: "destructive"
       });
       
-      // Reset typing status on error too
+      // Reset typing status on error too if the patient object exists and has an id
       if (patient?.id) {
         await supabase
           .from("patients")

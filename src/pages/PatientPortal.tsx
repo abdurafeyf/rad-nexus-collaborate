@@ -36,6 +36,11 @@ type Notification = {
   created_at: string;
 };
 
+type DoctorData = {
+  first_name: string;
+  last_name: string;
+};
+
 const PatientPortal = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -98,7 +103,7 @@ const PatientPortal = () => {
         setPatientName(patientData.name);
         setPatientId(patientData.id);
         
-        // Fetch reports
+        // Fetch reports with proper nested query structure
         const { data: reportData, error: reportError } = await supabase
           .from("reports")
           .select(`
@@ -109,9 +114,9 @@ const PatientPortal = () => {
             status,
             published_at,
             created_at,
-            scans(
+            scans (
               doctor_id,
-              doctors(
+              doctors:doctor_id (
                 first_name,
                 last_name
               )
@@ -129,9 +134,11 @@ const PatientPortal = () => {
           
           // Get doctor name if available
           let doctorName = "Unknown Doctor";
-          if (report.scans && report.scans.doctors) {
-            const { first_name, last_name } = report.scans.doctors;
-            doctorName = `Dr. ${first_name} ${last_name}`;
+          if (report.scans && report.scans.doctors && typeof report.scans.doctors === 'object') {
+            const doctorData = report.scans.doctors as DoctorData;
+            if (doctorData.first_name && doctorData.last_name) {
+              doctorName = `Dr. ${doctorData.first_name} ${doctorData.last_name}`;
+            }
           }
           
           return {
