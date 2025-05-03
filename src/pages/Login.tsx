@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import NavBar from "@/components/NavBar";
 import Footer from "@/components/Footer";
@@ -19,6 +19,7 @@ import {
   User,
   UserCheck
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 type UserType = "doctor" | "patient" | "admin" | undefined;
 
@@ -32,9 +33,39 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [emailError, setEmailError] = useState("");
+  const [registeredDomains, setRegisteredDomains] = useState<string[]>([]);
+  const [isLoadingDomains, setIsLoadingDomains] = useState(false);
 
-  // Simulated registered domains for demo purposes
-  const registeredDomains = ["hospital.com", "clinic.org", "medcenter.net"];
+  // Fetch registered domains from Supabase
+  useEffect(() => {
+    const fetchRegisteredDomains = async () => {
+      if (userType === "doctor") {
+        setIsLoadingDomains(true);
+        try {
+          const { data, error } = await supabase
+            .from("authorized_domains")
+            .select("domain");
+          
+          if (error) {
+            console.error("Error fetching authorized domains:", error);
+            toast({
+              title: "Error",
+              description: "Failed to load authorized domains. Please try again later.",
+              variant: "destructive",
+            });
+          } else if (data) {
+            setRegisteredDomains(data.map(item => item.domain));
+          }
+        } catch (error) {
+          console.error("Exception fetching domains:", error);
+        } finally {
+          setIsLoadingDomains(false);
+        }
+      }
+    };
+
+    fetchRegisteredDomains();
+  }, [userType, toast]);
 
   const validateEmail = (email: string): boolean => {
     if (!email || !email.includes("@")) {
@@ -42,17 +73,13 @@ const Login = () => {
       return false;
     }
     
-    const domain = email.split("@")[1];
-    
-    // For admin, any email is okay (would be validated against admins table in real implementation)
-    if (userType === "admin") {
-      return true;
-    }
-    
-    // For doctors, check against registered domains
-    if (userType === "doctor" && !registeredDomains.includes(domain)) {
-      setEmailError("This email domain is not authorized for doctor access");
-      return false;
+    if (userType === "doctor") {
+      const domain = email.split("@")[1];
+      
+      if (registeredDomains.length > 0 && !registeredDomains.includes(domain)) {
+        setEmailError("This email domain is not authorized for doctor access");
+        return false;
+      }
     }
     
     setEmailError("");
@@ -96,25 +123,25 @@ const Login = () => {
         return {
           title: "Doctor Login",
           description: "Access patient records, reports and collaborate with colleagues.",
-          icon: <User className="h-6 w-6" />
+          icon: <User className="h-6 w-6 text-brand-600" />
         };
       case "patient":
         return {
           title: "Patient Login",
           description: "View your medical records and communicate with your care team.",
-          icon: <UserCheck className="h-6 w-6" />
+          icon: <UserCheck className="h-6 w-6 text-brand-600" />
         };
       case "admin":
         return {
           title: "Admin Login",
           description: "Manage your organization, users and settings.",
-          icon: <Hospital className="h-6 w-6" />
+          icon: <Hospital className="h-6 w-6 text-brand-600" />
         };
       default:
         return {
           title: "Login",
-          description: "Access your RadNexus account.",
-          icon: <User className="h-6 w-6" />
+          description: "Access your RaDixpert account.",
+          icon: <User className="h-6 w-6 text-brand-600" />
         };
     }
   };
@@ -122,18 +149,18 @@ const Login = () => {
   const { title, description, icon } = getUserTypeDetails();
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-gradient-to-br from-gray-50 to-brand-50">
       <NavBar />
-      <main className="flex flex-grow items-center justify-center bg-gray-50 py-16">
+      <main className="flex flex-grow items-center justify-center py-16">
         <div className="container mx-auto px-4">
           <div className="mx-auto max-w-md">
-            <Card>
+            <Card className="border-brand-100 shadow-lg">
               <CardHeader className="text-center">
-                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-brand-50 text-brand-700">
+                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-brand-50 text-brand-600">
                   {icon}
                 </div>
-                <CardTitle>{title}</CardTitle>
-                <CardDescription>{description}</CardDescription>
+                <CardTitle className="text-2xl font-bold text-gray-800">{title}</CardTitle>
+                <CardDescription className="text-gray-600">{description}</CardDescription>
               </CardHeader>
               <form onSubmit={handleContinue}>
                 <CardContent className="space-y-4">
@@ -147,6 +174,7 @@ const Login = () => {
                       onChange={(e) => setEmail(e.target.value)}
                       error={emailError}
                       autoFocus
+                      disabled={isLoadingDomains}
                     />
                   ) : (
                     <>
@@ -185,11 +213,13 @@ const Login = () => {
                 <CardFooter className="flex-col space-y-2">
                   <Button
                     type="submit"
-                    className="w-full"
-                    disabled={loading || (step === "email" ? !email : !password)}
+                    className="w-full bg-brand-600 hover:bg-brand-700"
+                    disabled={loading || isLoadingDomains || (step === "email" ? !email : !password)}
                   >
                     {loading
                       ? "Processing..."
+                      : isLoadingDomains
+                      ? "Loading..."
                       : step === "email"
                       ? "Continue"
                       : "Log In"}
