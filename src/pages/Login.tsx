@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams, useLocation } from "react-router-dom";
 import NavBar from "@/components/NavBar";
 import Footer from "@/components/Footer";
 import FormInput from "@/components/FormInput";
@@ -14,6 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import { 
   Hospital,
   User,
@@ -27,8 +28,10 @@ type UserType = "doctor" | "patient" | "admin" | undefined;
 const Login = () => {
   const { userType } = useParams<{ userType: UserType }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
+  const { signIn } = useAuth();
   
   const [step, setStep] = useState<"email" | "password" | "changePassword">("email");
   const [email, setEmail] = useState("");
@@ -41,6 +44,9 @@ const Login = () => {
   const [registeredDomains, setRegisteredDomains] = useState<string[]>([]);
   const [isLoadingDomains, setIsLoadingDomains] = useState(false);
   const [requirePasswordChange, setRequirePasswordChange] = useState(false);
+
+  // Get the "from" location for redirect after login
+  const from = location.state?.from?.pathname || `/${userType}/dashboard`;
 
   // Check if there's a reset password token in URL
   const resetPasswordToken = searchParams.get('reset_password_token');
@@ -93,12 +99,12 @@ const Login = () => {
           title: "Already Logged In",
           description: "You're already logged in.",
         });
-        navigate(`/${userType}/dashboard`);
+        navigate(from);
       }
     };
 
     checkSession();
-  }, [resetPasswordToken, navigate, userType, toast]);
+  }, [resetPasswordToken, navigate, userType, toast, from]);
 
   const validateEmail = (email: string): boolean => {
     if (!email || !email.includes("@")) {
@@ -157,11 +163,8 @@ const Login = () => {
     setLoading(true);
     
     try {
-      // Sign in with email and password
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      // Sign in with email and password using AuthContext
+      const { error, data } = await signIn(email, password);
 
       if (error) {
         console.error("Login error:", error.message);
@@ -196,7 +199,6 @@ const Login = () => {
           toast({
             title: "Email Not Verified",
             description: "Please check your email to verify your account.",
-            variant: "default", // Using "default" variant which is allowed
           });
         }
       }
@@ -206,8 +208,8 @@ const Login = () => {
         description: `Welcome back! You're now logged in.`,
       });
       
-      // Redirect to appropriate dashboard based on user type
-      navigate(`/${userType}/dashboard`);
+      // Redirect to appropriate dashboard based on user type or from location
+      navigate(from);
     } catch (error: any) {
       toast({
         title: "Login Failed",
@@ -250,7 +252,7 @@ const Login = () => {
       });
       
       // Redirect to dashboard
-      navigate(`/${userType}/dashboard`);
+      navigate(from);
     } catch (error: any) {
       toast({
         title: "Password Update Failed",
