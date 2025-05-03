@@ -30,18 +30,25 @@ export const createPatientAuth = async ({ email, password }: PatientAuthParams) 
   try {
     console.log("Creating patient auth account for:", email);
     
-    // First, check if a user with this email already exists
-    const { data: existingUsers, error: checkError } = await supabase
-      .from("auth.users")
-      .select("id")
-      .eq("email", email);
-      
-    if (checkError) {
+    // First check if user exists using signInWithOtp which doesn't require a password
+    // This is just to check if user exists without attempting actual login
+    const { error: checkError } = await supabase.auth.signInWithOtp({
+      email: email,
+      options: {
+        shouldCreateUser: false, // Don't create the user, just check if they exist
+      },
+    });
+
+    // If the error says the user doesn't exist, we can create one
+    const userNotFound = checkError?.message?.includes("User not found");
+    
+    if (checkError && !userNotFound) {
       console.log("Error checking existing user:", checkError);
       // Continue with signup as we can't confirm if user exists
-    } else if (existingUsers && existingUsers.length > 0) {
+    } else if (!userNotFound) {
       console.log("User already exists, not creating a new one");
-      return { success: true, userId: existingUsers[0].id, userExists: true };
+      // We can't get the userId here without logging in, so just return success
+      return { success: true, userExists: true };
     }
     
     // Create the auth user

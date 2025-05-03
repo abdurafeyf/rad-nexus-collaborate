@@ -1,65 +1,19 @@
 
-import React, { useState } from "react";
-import * as z from "zod";
+import React, { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { PlusCircle, Trash, Calendar, Mail, User } from "lucide-react";
-import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Form } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import NewSidebar from "@/components/NewSidebar";
 import { useAuth } from "@/contexts/AuthContext";
-import { createPatientAuth, generateTemporaryPassword, sendPatientWelcomeEmail } from "@/utils/passwordUtils";
-
-// Form schema for patient creation
-const patientFormSchema = z.object({
-  name: z.string().min(2, {
-    message: "Name must be at least 2 characters.",
-  }),
-  email: z.string().email({
-    message: "Please enter a valid email.",
-  }),
-  dateOfBirth: z.date().optional(),
-  gender: z.enum(["male", "female", "other", ""]).optional(),
-  notes: z.string().optional(),
-  xrays: z
-    .array(
-      z.object({
-        date: z.date(),
-        file: z.instanceof(File).optional(),
-        scanType: z.enum(["X-Ray", "MRI", "CT", "Ultrasound", "Other"]).default("X-Ray"),
-      })
-    )
-    .optional(),
-});
-
-type PatientFormValues = z.infer<typeof patientFormSchema>;
+import { patientFormSchema, PatientFormValues } from "@/types/patient";
+import { createPatient } from "@/services/patientService";
+import PersonalInfoSection from "@/components/patient/PersonalInfoSection";
+import MedicalNotesSection from "@/components/patient/MedicalNotesSection";
+import ScanRecordsSection from "@/components/patient/ScanRecordsSection";
 
 const AddPatientPage: React.FC = () => {
   const { toast } = useToast();
@@ -68,7 +22,7 @@ const AddPatientPage: React.FC = () => {
   const { user } = useAuth();
   const [currentDoctorId, setCurrentDoctorId] = useState<string | null>(null);
   
-  React.useEffect(() => {
+  useEffect(() => {
     const fetchDoctorInfo = async () => {
       if (!user) return;
       
@@ -105,23 +59,6 @@ const AddPatientPage: React.FC = () => {
     },
   });
 
-  // Add new X-ray field
-  const addXray = () => {
-    const currentXrays = form.getValues("xrays") || [];
-    form.setValue("xrays", [
-      ...currentXrays,
-      { date: new Date(), file: undefined, scanType: "X-Ray" },
-    ]);
-  };
-
-  // Remove X-ray field
-  const removeXray = (index: number) => {
-    const currentXrays = form.getValues("xrays") || [];
-    const newXrays = [...currentXrays];
-    newXrays.splice(index, 1);
-    form.setValue("xrays", newXrays);
-  };
-
   const onSubmit = async (data: PatientFormValues) => {
     if (!currentDoctorId) {
       toast({
@@ -135,99 +72,18 @@ const AddPatientPage: React.FC = () => {
     setIsSubmitting(true);
     
     try {
-      // Check if patient already exists
-      const { data: existingPatient, error: checkError } = await supabase
-        .from("patients")
-        .select("id")
-        .eq("email", data.email)
-        .maybeSingle();
+      const result = await createPatient({
+        ...data,
+        doctorId: currentDoctorId,
+      });
 
-      let patientId;
-      let isNewPatient = !existingPatient;
-      let temporaryPassword;
-
-      if (!existingPatient) {
-        // Generate a secure temporary password for new patients
-        temporaryPassword = generateTemporaryPassword(12);
-        console.log("Generated temporary password:", temporaryPassword);
-        
-        // For new patients, create a patient record directly
-        const { data: patient, error: patientError } = await supabase
-          .from("patients")
-          .insert({
-            name: data.name,
-            email: data.email,
-            date_of_birth: data.dateOfBirth ? data.dateOfBirth.toISOString().split("T")[0] : null,
-            gender: data.gender || null,
-            notes: data.notes || null,
-            doctor_id: currentDoctorId, // Associate patient with the current doctor
-          })
-          .select()
-          .single();
-
-        if (patientError) {
-          throw patientError;
-        }
-
-        patientId = patient.id;
-        
-        // Create auth account for the patient
-        const authResult = await createPatientAuth({
-          email: data.email,
-          password: temporaryPassword,
-        });
-        
-        if (!authResult.success) {
-          console.warn("Failed to create auth account for patient, but patient record was created", authResult.error);
-        } else {
-          console.log("Patient auth account created successfully");
-        }
-      } else {
-        patientId = existingPatient.id;
-      }
-
-      // Handle X-rays if any
-      if (data.xrays && data.xrays.length > 0) {
-        for (const xray of data.xrays) {
-          // Insert X-ray record
-          const { error: xrayError } = await supabase
-            .from("x_rays")
-            .insert({
-              patient_id: patientId,
-              date: xray.date.toISOString().split("T")[0],
-              scan_type: xray.scanType
-            });
-
-          if (xrayError) {
-            throw xrayError;
-          }
-        }
-      }
-
-      // Send email to patient - but only for new patients
-      if (isNewPatient && temporaryPassword) {
-        try {
-          console.log("Sending welcome email to patient");
-          await sendPatientWelcomeEmail(data.email, data.name, temporaryPassword);
-          
-          toast({
-            title: "Email sent",
-            description: "Welcome email with login details has been sent to the patient.",
-          });
-        } catch (emailError) {
-          console.error("Failed to send email, but patient was added successfully:", emailError);
-          
-          toast({
-            title: "Patient added",
-            description: "Patient was added but welcome email could not be sent. Please check your email configuration.",
-            variant: "destructive",
-          });
-        }
+      if (!result.success) {
+        throw new Error(result.error);
       }
 
       toast({
-        title: isNewPatient ? "Patient added successfully" : "Patient information updated",
-        description: isNewPatient 
+        title: result.isNewPatient ? "Patient added successfully" : "Patient information updated",
+        description: result.isNewPatient 
           ? "The patient has been added and will receive login details."
           : "The patient has been updated with new information.",
       });
@@ -272,270 +128,9 @@ const AddPatientPage: React.FC = () => {
           <div className="max-w-3xl mx-auto">
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-100">
-                  <h3 className="text-lg font-semibold mb-4 flex items-center text-gray-800">
-                    <User className="mr-2 h-5 w-5 text-teal-500" />
-                    Personal Information
-                  </h3>
-                  
-                  <div className="grid gap-6">
-                    <FormField
-                      control={form.control}
-                      name="name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-gray-700">Full Name</FormLabel>
-                          <FormControl>
-                            <Input 
-                              placeholder="John Doe" 
-                              {...field}
-                              className="border-gray-200 focus:border-teal-500 focus:ring-teal-500" 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-gray-700">Email</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <Mail className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                              <Input
-                                placeholder="patient@example.com"
-                                type="email"
-                                className="pl-10 border-gray-200 focus:border-teal-500 focus:ring-teal-500"
-                                {...field}
-                              />
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                      <FormField
-                        control={form.control}
-                        name="dateOfBirth"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-col">
-                            <FormLabel className="text-gray-700">Date of Birth</FormLabel>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <FormControl>
-                                  <Button
-                                    variant={"outline"}
-                                    className={cn(
-                                      "w-full pl-3 text-left font-normal border-gray-200",
-                                      !field.value && "text-gray-400"
-                                    )}
-                                  >
-                                    <Calendar className="mr-2 h-4 w-4 text-gray-400" />
-                                    {field.value ? (
-                                      format(field.value, "PPP")
-                                    ) : (
-                                      <span>Pick a date</span>
-                                    )}
-                                  </Button>
-                                </FormControl>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-auto p-0" align="start">
-                                <CalendarComponent
-                                  mode="single"
-                                  selected={field.value}
-                                  onSelect={field.onChange}
-                                  initialFocus
-                                  disabled={(date) =>
-                                    date > new Date() || date < new Date("1900-01-01")
-                                  }
-                                />
-                              </PopoverContent>
-                            </Popover>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="gender"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-gray-700">Gender</FormLabel>
-                            <Select
-                              onValueChange={field.onChange}
-                              value={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger className="border-gray-200 focus:ring-teal-500">
-                                  <SelectValue placeholder="Select gender" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="male">Male</SelectItem>
-                                <SelectItem value="female">Female</SelectItem>
-                                <SelectItem value="other">Other</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-100">
-                  <h3 className="text-lg font-semibold mb-4 text-gray-800">Additional Information</h3>
-                  
-                  <FormField
-                    control={form.control}
-                    name="notes"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-gray-700">Medical Notes</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Any important notes about the patient's medical history..."
-                            className="min-h-[100px] border-gray-200 focus:border-teal-500 focus:ring-teal-500"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-100">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-gray-800">Scan Records</h3>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={addXray}
-                      className="border-teal-200 hover:bg-teal-50 text-teal-600"
-                    >
-                      <PlusCircle className="mr-2 h-4 w-4" />
-                      Add Scan
-                    </Button>
-                  </div>
-
-                  {form.watch("xrays")?.length ? (
-                    <div className="space-y-4">
-                      {form.watch("xrays")?.map((xray, index) => (
-                        <div
-                          key={index}
-                          className="rounded-md border border-gray-200 p-4 bg-gray-50"
-                        >
-                          <div className="flex items-center justify-between">
-                            <h4 className="font-medium text-gray-700">Scan #{index + 1}</h4>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeXray(index)}
-                              className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                            >
-                              <Trash className="h-4 w-4" />
-                            </Button>
-                          </div>
-                          
-                          <div className="mt-3 space-y-3">
-                            <FormField
-                              control={form.control}
-                              name={`xrays.${index}.scanType`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel className="text-gray-700">Scan Type</FormLabel>
-                                  <Select
-                                    onValueChange={field.onChange}
-                                    defaultValue={field.value}
-                                  >
-                                    <FormControl>
-                                      <SelectTrigger className="border-gray-200 focus:ring-teal-500">
-                                        <SelectValue placeholder="Select scan type" />
-                                      </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                      <SelectItem value="X-Ray">X-Ray</SelectItem>
-                                      <SelectItem value="MRI">MRI</SelectItem>
-                                      <SelectItem value="CT">CT Scan</SelectItem>
-                                      <SelectItem value="Ultrasound">Ultrasound</SelectItem>
-                                      <SelectItem value="Other">Other</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            
-                            <FormField
-                              control={form.control}
-                              name={`xrays.${index}.date`}
-                              render={({ field }) => (
-                                <FormItem className="flex flex-col">
-                                  <FormLabel className="text-gray-700">Date Taken</FormLabel>
-                                  <Popover>
-                                    <PopoverTrigger asChild>
-                                      <FormControl>
-                                        <Button
-                                          variant={"outline"}
-                                          className={cn(
-                                            "w-full pl-3 text-left font-normal border-gray-200",
-                                            !field.value && "text-gray-400"
-                                          )}
-                                        >
-                                          <Calendar className="mr-2 h-4 w-4 text-gray-400" />
-                                          {field.value ? (
-                                            format(field.value, "PPP")
-                                          ) : (
-                                            <span>Pick a date</span>
-                                          )}
-                                        </Button>
-                                      </FormControl>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="start">
-                                      <CalendarComponent
-                                        mode="single"
-                                        selected={field.value}
-                                        onSelect={field.onChange}
-                                        disabled={(date) => date > new Date()}
-                                        initialFocus
-                                      />
-                                    </PopoverContent>
-                                  </Popover>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-6 text-gray-500 bg-gray-50 rounded-md border border-dashed border-gray-200">
-                      <Calendar className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-                      <p>No scan records added yet</p>
-                      <Button 
-                        type="button" 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={addXray}
-                        className="mt-2 text-teal-600 hover:text-teal-700"
-                      >
-                        Add your first scan record
-                      </Button>
-                    </div>
-                  )}
-                </div>
+                <PersonalInfoSection form={form} />
+                <MedicalNotesSection form={form} />
+                <ScanRecordsSection form={form} />
 
                 <div className="flex justify-end space-x-4 pt-4">
                   <Button
