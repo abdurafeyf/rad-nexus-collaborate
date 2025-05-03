@@ -83,7 +83,22 @@ const Login = () => {
       setStep("changePassword");
       setRequirePasswordChange(true);
     }
-  }, [resetPasswordToken]);
+
+    // Check if user is already logged in
+    const checkSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        // User is already logged in, redirect to appropriate dashboard
+        toast({
+          title: "Already Logged In",
+          description: "You're already logged in.",
+        });
+        navigate(`/${userType}/dashboard`);
+      }
+    };
+
+    checkSession();
+  }, [resetPasswordToken, navigate, userType, toast]);
 
   const validateEmail = (email: string): boolean => {
     if (!email || !email.includes("@")) {
@@ -149,14 +164,16 @@ const Login = () => {
       });
 
       if (error) {
+        console.error("Login error:", error.message);
         throw error;
       }
 
+      console.log("Login successful:", data);
+
       // Check if this might be a patient's first login (temporary password)
       if (userType === "patient") {
-        // We'll consider it's a first login if the password is "temporary" or matches our pattern
-        // In a real app, you'd have a flag in the database to track this
-        // For now, let's simulate this with a check
+        // This is a simplified check. In reality, there should be a flag in the database
+        // or a claim in the JWT to indicate if a password change is required
         const isTemporaryPassword = password.length >= 10 && 
           /[A-Z]/.test(password) && 
           /[a-z]/.test(password) && 
@@ -171,16 +188,17 @@ const Login = () => {
         }
       }
 
-      // Check if doctor email is verified (you'd want to check this in a production app)
-      if (userType === "doctor" && !data.user?.email_confirmed_at) {
+      // Check if doctor email is verified
+      if (userType === "doctor") {
         // In a real app with proper flow, you'd handle unverified doctor emails
-        // For now, we'll just show a toast but let them through
-        toast({
-          title: "Email Not Verified",
-          description: "Please check your email to verify your account.",
-          // Fix: Change "warning" to "default" which is an allowed variant
-          variant: "default",
-        });
+        // The email_confirmed_at field tells us if the email is verified
+        if (data.user && !data.user.email_confirmed_at) {
+          toast({
+            title: "Email Not Verified",
+            description: "Please check your email to verify your account.",
+            variant: "default", // Using "default" variant which is allowed
+          });
+        }
       }
 
       toast({
@@ -209,22 +227,22 @@ const Login = () => {
     setLoading(true);
 
     try {
+      let result;
+      
       // If it's from a reset token
       if (resetPasswordToken) {
         // Update password using the token
-        const { error } = await supabase.auth.updateUser({
+        result = await supabase.auth.updateUser({
           password: newPassword
         });
-
-        if (error) throw error;
       } else {
         // Update password while logged in (first-time login case)
-        const { error } = await supabase.auth.updateUser({
+        result = await supabase.auth.updateUser({
           password: newPassword
         });
-
-        if (error) throw error;
       }
+
+      if (result.error) throw result.error;
 
       toast({
         title: "Password Updated",
@@ -244,23 +262,27 @@ const Login = () => {
     }
   };
 
-  // Send verification email to doctor
+  // Send verification/reset email
   const sendVerificationEmail = async () => {
     if (!email) return;
     
     try {
-      // Fix: Using the correct method name from Supabase v2 API
-      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      // Using the correct method from Supabase v2 API
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + `/login/${userType}`,
+      });
       
       if (error) throw error;
       
       toast({
-        title: "Verification Email Sent",
-        description: "Please check your inbox to verify your account.",
+        title: "Email Sent",
+        description: userType === "doctor" 
+          ? "Please check your inbox to verify your account." 
+          : "Please check your inbox for password reset instructions.",
       });
     } catch (error: any) {
       toast({
-        title: "Failed to Send Verification Email",
+        title: "Failed to Send Email",
         description: error.message || "Please try again later.",
         variant: "destructive",
       });
@@ -360,6 +382,7 @@ const Login = () => {
                         <button
                           type="button"
                           className="text-xs text-brand-600 hover:text-brand-800"
+                          onClick={sendVerificationEmail}
                         >
                           Forgot password?
                         </button>
