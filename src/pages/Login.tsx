@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect } from "react";
-import { useNavigate, useParams, useSearchParams, useLocation } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams, useLocation, Link } from "react-router-dom";
 import NavBar from "@/components/NavBar";
 import Footer from "@/components/Footer";
 import FormInput from "@/components/FormInput";
@@ -450,16 +449,15 @@ const Login = () => {
                     </div>
                   )}
                   
-                  {userType === "patient" && step === "email" && (
+                  {(userType === "doctor" || userType === "patient") && step === "email" && (
                     <div className="text-center text-xs text-gray-600">
                       Don't have an account?{" "}
-                      <button
-                        type="button"
+                      <Link
+                        to={`/register/${userType}`}
                         className="font-medium text-brand-600 hover:text-brand-800"
-                        onClick={() => navigate("/register/patient")}
                       >
                         Sign up
-                      </button>
+                      </Link>
                     </div>
                   )}
                 </CardFooter>

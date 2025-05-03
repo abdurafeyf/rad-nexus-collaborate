@@ -11,6 +11,7 @@ type AuthContextType = {
   signOut: () => Promise<void>;
   refreshSession: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null; data: any }>;
+  signUp: (email: string, password: string, metadata?: object) => Promise<{ error: Error | null; data: any }>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -82,6 +83,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const signUp = async (email: string, password: string, metadata = {}) => {
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: metadata,
+        }
+      });
+
+      if (error) {
+        console.error("Sign up error:", error.message);
+        return { error, data: null };
+      }
+
+      return { error: null, data };
+    } catch (error: any) {
+      console.error("Unexpected error during sign up:", error);
+      return { error, data: null };
+    }
+  };
+
   const signOut = async () => {
     try {
       const { error } = await supabase.auth.signOut();
@@ -119,7 +142,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, loading, signOut, refreshSession, signIn }}>
+    <AuthContext.Provider value={{ session, user, loading, signOut, refreshSession, signIn, signUp }}>
       {children}
     </AuthContext.Provider>
   );

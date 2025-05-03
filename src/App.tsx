@@ -10,6 +10,7 @@ import NotFound from "./pages/NotFound";
 import OrganizationRegister from "./pages/OrganizationRegister";
 import RegistrationSuccess from "./pages/RegistrationSuccess";
 import Login from "./pages/Login";
+import Register from "./pages/Register";
 import DoctorDashboard from "./pages/DoctorDashboard";
 import PatientDetail from "./pages/PatientDetail";
 import PatientChat from "./pages/PatientChat";
@@ -32,6 +33,7 @@ const App = () => (
             <Route path="/register/organization" element={<OrganizationRegister />} />
             <Route path="/register/success" element={<RegistrationSuccess />} />
             <Route path="/login/:userType" element={<Login />} />
+            <Route path="/register/:userType" element={<Register />} />
             
             {/* Doctor routes */}
             <Route path="/doctor/dashboard" element={<DoctorDashboard />} />
