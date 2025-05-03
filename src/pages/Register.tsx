@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+
+import React, { useState, useEffect } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import NavBar from "@/components/NavBar";
 import Footer from "@/components/Footer";
@@ -12,15 +13,25 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { 
   Hospital,
   User,
   UserPlus,
-  CheckCircle
+  CheckCircle,
+  Search
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 type UserType = "doctor" | "patient" | undefined;
 
@@ -40,9 +51,16 @@ const Register = () => {
   const [passwordError, setPasswordError] = useState("");
   const [registeredDomains, setRegisteredDomains] = useState<string[]>([]);
   const [isLoadingDomains, setIsLoadingDomains] = useState(false);
+  
+  // Organization selection for doctors
+  const [organizations, setOrganizations] = useState<any[]>([]);
+  const [selectedOrganizationId, setSelectedOrganizationId] = useState<string>("");
+  const [organizationSearchTerm, setOrganizationSearchTerm] = useState("");
+  const [isLoadingOrganizations, setIsLoadingOrganizations] = useState(false);
+  const [showOrgDropdown, setShowOrgDropdown] = useState(false);
 
   // Fetch registered domains for doctor registration
-  React.useEffect(() => {
+  useEffect(() => {
     const fetchRegisteredDomains = async () => {
       if (userType === "doctor") {
         setIsLoadingDomains(true);
@@ -70,6 +88,38 @@ const Register = () => {
     };
 
     fetchRegisteredDomains();
+  }, [userType, toast]);
+  
+  // Fetch organizations for doctor registration
+  useEffect(() => {
+    const fetchOrganizations = async () => {
+      if (userType === "doctor") {
+        setIsLoadingOrganizations(true);
+        try {
+          const { data, error } = await supabase
+            .from("organizations")
+            .select("id, institute_name")
+            .order("institute_name");
+          
+          if (error) {
+            console.error("Error fetching organizations:", error);
+            toast({
+              title: "Error",
+              description: "Failed to load organizations. Please try again later.",
+              variant: "destructive",
+            });
+          } else if (data) {
+            setOrganizations(data);
+          }
+        } catch (error) {
+          console.error("Exception fetching organizations:", error);
+        } finally {
+          setIsLoadingOrganizations(false);
+        }
+      }
+    };
+
+    fetchOrganizations();
   }, [userType, toast]);
 
   const validateEmail = (email: string): boolean => {
@@ -105,6 +155,17 @@ const Register = () => {
     setPasswordError("");
     return true;
   };
+  
+  const handleSearchOrganization = (term: string) => {
+    setOrganizationSearchTerm(term);
+    setShowOrgDropdown(true);
+  };
+  
+  const filteredOrganizations = organizationSearchTerm 
+    ? organizations.filter(org => 
+        org.institute_name.toLowerCase().includes(organizationSearchTerm.toLowerCase())
+      )
+    : organizations;
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,15 +174,32 @@ const Register = () => {
       return;
     }
     
+    if (userType === "doctor" && !selectedOrganizationId) {
+      toast({
+        title: "Organization Required",
+        description: "Please select your organization",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setLoading(true);
     
     try {
-      // Sign up with email and password using AuthContext
-      const { error, data } = await signUp(email, password, {
+      // Prepare metadata based on user type
+      const metadata: any = {
         first_name: firstName,
         last_name: lastName,
         user_type: userType,
-      });
+      };
+      
+      // Add organization_id for doctors
+      if (userType === "doctor") {
+        metadata.organization_id = selectedOrganizationId;
+      }
+      
+      // Sign up with email and password using AuthContext
+      const { error, data } = await signUp(email, password, metadata);
 
       if (error) {
         throw error;
@@ -231,6 +309,65 @@ const Register = () => {
                     disabled={isLoadingDomains}
                   />
                   
+                  {userType === "doctor" && (
+                    <div className="space-y-2">
+                      <label htmlFor="organization" className="text-sm font-medium text-gray-700">
+                        Organization
+                      </label>
+                      <div className="relative">
+                        <div className="flex items-center rounded-md border border-gray-200">
+                          <Input
+                            id="organizationSearch"
+                            value={organizationSearchTerm}
+                            onChange={(e) => handleSearchOrganization(e.target.value)}
+                            placeholder="Search for your organization"
+                            className="flex-1 border-none shadow-none focus-visible:ring-0"
+                          />
+                          <div className="px-3 text-gray-400">
+                            <Search size={18} />
+                          </div>
+                        </div>
+                        
+                        {showOrgDropdown && (
+                          <div className="absolute z-50 mt-1 w-full rounded-md border border-gray-200 bg-white shadow-lg">
+                            <ScrollArea className="h-60 rounded-md">
+                              {filteredOrganizations.length > 0 ? (
+                                filteredOrganizations.map(org => (
+                                  <div
+                                    key={org.id}
+                                    className="cursor-pointer px-4 py-2 hover:bg-gray-100"
+                                    onClick={() => {
+                                      setSelectedOrganizationId(org.id);
+                                      setOrganizationSearchTerm(org.institute_name);
+                                      setShowOrgDropdown(false);
+                                    }}
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <span>{org.institute_name}</span>
+                                      {selectedOrganizationId === org.id && 
+                                        <CheckCircle className="h-4 w-4 text-green-500" />
+                                      }
+                                    </div>
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="px-4 py-2 text-gray-500">
+                                  No organizations found
+                                </div>
+                              )}
+                            </ScrollArea>
+                          </div>
+                        )}
+                      </div>
+                      {selectedOrganizationId && (
+                        <div className="mt-1 flex items-center text-sm text-green-600">
+                          <CheckCircle className="mr-1 h-4 w-4" />
+                          Organization selected
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
                   <FormInput
                     label="Password"
                     id="password"
@@ -254,7 +391,7 @@ const Register = () => {
                   <Button
                     type="submit"
                     className="w-full bg-brand-600 hover:bg-brand-700"
-                    disabled={loading || isLoadingDomains || !email || !password || !confirmPassword || !firstName || !lastName}
+                    disabled={loading || isLoadingDomains || !email || !password || !confirmPassword || !firstName || !lastName || (userType === "doctor" && !selectedOrganizationId)}
                   >
                     {loading ? "Processing..." : "Create Account"}
                   </Button>

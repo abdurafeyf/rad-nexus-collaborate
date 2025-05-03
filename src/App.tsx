@@ -19,6 +19,7 @@ import ScanUpload from "./pages/ScanUpload";
 import ReportReview from "./pages/ReportReview";
 import PatientPortal from "./pages/PatientPortal";
 import PatientReport from "./pages/PatientReport";
+import MessagesPage from "./pages/MessagesPage";
 
 const queryClient = new QueryClient();
 
@@ -67,6 +68,11 @@ const App = () => (
                 <ReportReview />
               </ProtectedRoute>
             } />
+            <Route path="/doctor/messages" element={
+              <ProtectedRoute userType="doctor">
+                <MessagesPage />
+              </ProtectedRoute>
+            } />
             
             {/* Patient routes */}
             <Route path="/patient/portal" element={
@@ -77,6 +83,11 @@ const App = () => (
             <Route path="/patient/reports/:reportId" element={
               <ProtectedRoute userType="patient">
                 <PatientReport />
+              </ProtectedRoute>
+            } />
+            <Route path="/patient/messages" element={
+              <ProtectedRoute userType="patient">
+                <MessagesPage />
               </ProtectedRoute>
             } />
             

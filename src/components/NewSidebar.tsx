@@ -1,6 +1,6 @@
 
-import React, { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { 
   ChevronLeft, 
@@ -10,9 +10,20 @@ import {
   MessageSquare, 
   Calendar, 
   Settings,
-  Menu
+  Menu,
+  LogOut
 } from "lucide-react";
 import { Button } from "./ui/button";
+import { useAuth } from "@/contexts/AuthContext";
+import { Avatar, AvatarFallback } from "./ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { toast } from "@/components/ui/use-toast";
 
 interface SidebarLinkProps {
   to: string;
@@ -62,20 +73,35 @@ const NewSidebar: React.FC<NewSidebarProps> = ({ type, children, className }) =>
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+  
+  // User information
+  const [userFullName, setUserFullName] = useState("");
+  const [userInitials, setUserInitials] = useState("");
+  
+  useEffect(() => {
+    if (user && user.user_metadata) {
+      const firstName = user.user_metadata.first_name || "";
+      const lastName = user.user_metadata.last_name || "";
+      setUserFullName(`${firstName} ${lastName}`);
+      setUserInitials(`${firstName.charAt(0)}${lastName.charAt(0)}`);
+    }
+  }, [user]);
   
   // Define the navigation items based on the sidebar type
   const navItems = type === 'doctor'
     ? [
         { to: "/doctor/dashboard", icon: <User />, label: "Patients" },
-        { to: "/doctor/reports", icon: <FileText />, label: "Reports" },
         { to: "/doctor/messages", icon: <MessageSquare />, label: "Messages" },
+        { to: "/doctor/reports", icon: <FileText />, label: "Reports" },
         { to: "/doctor/appointments", icon: <Calendar />, label: "Appointments" },
         { to: "/doctor/settings", icon: <Settings />, label: "Settings" },
       ]
     : [
         { to: "/patient/portal", icon: <User />, label: "My Records" },
-        { to: "/patient/reports", icon: <FileText />, label: "Reports" },
         { to: "/patient/messages", icon: <MessageSquare />, label: "Messages" },
+        { to: "/patient/reports", icon: <FileText />, label: "Reports" },
         { to: "/patient/appointments", icon: <Calendar />, label: "Appointments" },
         { to: "/patient/settings", icon: <Settings />, label: "Settings" },
       ];
@@ -87,6 +113,24 @@ const NewSidebar: React.FC<NewSidebarProps> = ({ type, children, className }) =>
   // Mobile toggle
   const toggleMobileMenu = () => {
     setIsMobileOpen(!isMobileOpen);
+  };
+  
+  // Handle logout
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      toast({
+        title: "Logged out successfully",
+        description: "You have been logged out of your account."
+      });
+      navigate("/");
+    } catch (error: any) {
+      toast({
+        title: "Logout Failed",
+        description: error.message || "An error occurred during logout.",
+        variant: "destructive",
+      });
+    }
   };
   
   return (
@@ -150,16 +194,45 @@ const NewSidebar: React.FC<NewSidebarProps> = ({ type, children, className }) =>
         </div>
         
         <div className="p-4 border-t">
-          <Button
-            variant="outline"
-            className={cn(
-              "w-full justify-center border-teal-200 bg-teal-50 text-teal-600 hover:bg-teal-100",
-              isCollapsed ? "p-2" : ""
-            )}
-          >
-            <User className="h-5 w-5" />
-            {!isCollapsed && <span className="ml-2">Profile</span>}
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-full justify-between border-teal-200 bg-teal-50 text-teal-600 hover:bg-teal-100",
+                  isCollapsed ? "p-2" : ""
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <Avatar className="h-7 w-7">
+                    <AvatarFallback className="text-xs bg-teal-100 text-teal-700">
+                      {userInitials}
+                    </AvatarFallback>
+                  </Avatar>
+                  {!isCollapsed && <span className="truncate">{userFullName}</span>}
+                </div>
+                {!isCollapsed && <ChevronRight className="h-4 w-4" />}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <div className="px-2 py-1.5 text-sm font-medium">
+                {userFullName}
+              </div>
+              <div className="px-2 py-1 text-xs text-gray-500">
+                {user?.email}
+              </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="cursor-pointer" onClick={() => navigate(`/${type}/settings`)}>
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Settings</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="cursor-pointer text-red-600 focus:text-red-600" onClick={handleLogout}>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Log out</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
       
@@ -184,6 +257,20 @@ const NewSidebar: React.FC<NewSidebarProps> = ({ type, children, className }) =>
               </Button>
             </div>
             
+            <div className="p-4 border-b">
+              <div className="flex items-center gap-3">
+                <Avatar>
+                  <AvatarFallback className="bg-teal-100 text-teal-700">
+                    {userInitials}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <div className="font-medium">{userFullName}</div>
+                  <div className="text-xs text-gray-500">{user?.email}</div>
+                </div>
+              </div>
+            </div>
+            
             <div className="flex flex-col p-2 flex-grow">
               {navItems.map((item) => (
                 <SidebarLink
@@ -200,10 +287,11 @@ const NewSidebar: React.FC<NewSidebarProps> = ({ type, children, className }) =>
             <div className="p-4 border-t">
               <Button
                 variant="outline"
-                className="w-full justify-center border-teal-200 bg-teal-50 text-teal-600 hover:bg-teal-100"
+                className="w-full justify-start text-red-600 border-red-200"
+                onClick={handleLogout}
               >
-                <User className="h-5 w-5" />
-                <span className="ml-2">Profile</span>
+                <LogOut className="mr-2 h-5 w-5" />
+                <span>Log Out</span>
               </Button>
             </div>
           </div>
