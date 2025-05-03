@@ -30,27 +30,6 @@ export const createPatientAuth = async ({ email, password }: PatientAuthParams) 
   try {
     console.log("Creating patient auth account for:", email);
     
-    // First check if user exists using signInWithOtp which doesn't require a password
-    // This is just to check if user exists without attempting actual login
-    const { error: checkError } = await supabase.auth.signInWithOtp({
-      email: email,
-      options: {
-        shouldCreateUser: false, // Don't create the user, just check if they exist
-      },
-    });
-
-    // If the error says the user doesn't exist, we can create one
-    const userNotFound = checkError?.message?.includes("User not found");
-    
-    if (checkError && !userNotFound) {
-      console.log("Error checking existing user:", checkError);
-      // Continue with signup as we can't confirm if user exists
-    } else if (!userNotFound) {
-      console.log("User already exists, not creating a new one");
-      // We can't get the userId here without logging in, so just return success
-      return { success: true, userExists: true };
-    }
-    
     // Create the auth user
     const { data, error } = await supabase.auth.signUp({
       email: email,
@@ -75,65 +54,4 @@ export const createPatientAuth = async ({ email, password }: PatientAuthParams) 
   }
 };
 
-export const sendPatientWelcomeEmail = async (
-  patientEmail: string,
-  patientName: string,
-  temporaryPassword: string
-) => {
-  try {
-    console.log("Sending welcome email to:", patientEmail);
-    
-    const subject = "Welcome to RaDixpert - Your Patient Account";
-    const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="text-align: center; margin-bottom: 20px;">
-          <h1 style="color: #10b981; margin-bottom: 5px;">RaDixpert</h1>
-          <p style="color: #64748b; font-size: 16px;">Your Radiology Expert</p>
-        </div>
-        <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <h2 style="color: #334155; margin-bottom: 16px;">Welcome, ${patientName}!</h2>
-          <p style="color: #475569; line-height: 1.6;">Your healthcare provider has created an account for you in the RaDixpert system. You can now access your medical reports and chat with your doctors.</p>
-          <p style="color: #475569; line-height: 1.6; margin-top: 16px;">Your login details:</p>
-          <div style="background-color: #e2e8f0; padding: 12px; border-radius: 4px; margin: 16px 0;">
-            <p style="margin: 4px 0; font-family: monospace; font-size: 16px;">Email: ${patientEmail}</p>
-            <p style="margin: 4px 0; font-family: monospace; font-size: 16px;">Temporary Password: ${temporaryPassword}</p>
-          </div>
-          <p style="color: #475569; line-height: 1.6;">You'll be asked to change your password when you first log in.</p>
-          <div style="text-align: center; margin-top: 24px;">
-            <a href="https://ruueewpswsmmagpsxbvk.supabase.co/auth/v1/verify?next=/login/patient" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Login to Your Account</a>
-          </div>
-        </div>
-        <div style="text-align: center; margin-top: 24px; color: #94a3b8; font-size: 14px;">
-          <p>If you have any questions, please contact your healthcare provider.</p>
-          <p>&copy; ${new Date().getFullYear()} RaDixpert. All rights reserved.</p>
-        </div>
-      </div>
-    `;
-
-    // Call the send-email edge function with the full URL
-    const response = await fetch(`https://ruueewpswsmmagpsxbvk.supabase.co/functions/v1/send-email`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        to: patientEmail,
-        subject,
-        html,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error("Email API error response:", errorData);
-      throw new Error(errorData.error || "Failed to send email");
-    }
-
-    const result = await response.json();
-    console.log("Email sending result:", result);
-    return result;
-  } catch (error) {
-    console.error("Error sending email:", error);
-    throw error;
-  }
-};
+// We're removing the sendPatientWelcomeEmail function as we're using notifications instead

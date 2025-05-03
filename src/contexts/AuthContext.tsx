@@ -3,6 +3,7 @@ import React, { createContext, useState, useEffect, useContext, ReactNode } from
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
+import { checkPatientEmail } from '@/services/patientService';
 
 type AuthContextType = {
   session: Session | null;
@@ -66,6 +67,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const signIn = async (email: string, password: string) => {
     try {
+      // Check if email exists in patients table
+      const isValidPatient = await checkPatientEmail(email);
+      
+      if (!isValidPatient) {
+        return { 
+          error: new Error("This email is not registered in our system. Please contact your healthcare provider."), 
+          data: null 
+        };
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -85,11 +96,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const signUp = async (email: string, password: string, metadata = {}) => {
     try {
+      // Check if email exists in patients table
+      const isValidPatient = await checkPatientEmail(email);
+      
+      if (!isValidPatient) {
+        return { 
+          error: new Error("This email is not registered in our system. Please contact your healthcare provider."), 
+          data: null 
+        };
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: metadata,
+          data: {
+            ...metadata,
+            user_type: "patient"  // Always set user_type for patients
+          },
         }
       });
 

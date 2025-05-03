@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -41,6 +40,7 @@ import {
 } from "@/components/ui/popover";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
+import { createPatient } from "@/services/patientService";
 
 // Form schema for patient creation
 const patientFormSchema = z.object({
@@ -81,91 +81,6 @@ const generateTemporaryPassword = (length = 10) => {
     password += charset[randomIndex];
   }
   return password;
-};
-
-// Send email to patient
-const sendPatientEmail = async (
-  patientEmail: string, 
-  patientName: string, 
-  isNewPatient: boolean, 
-  temporaryPassword?: string
-) => {
-  try {
-    let subject, html;
-    
-    if (isNewPatient) {
-      subject = "Welcome to RaDixpert - Your Patient Account";
-      html = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="text-align: center; margin-bottom: 20px;">
-            <h1 style="color: #10b981; margin-bottom: 5px;">RaDixpert</h1>
-            <p style="color: #64748b; font-size: 16px;">Your Radiology Expert</p>
-          </div>
-          <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-            <h2 style="color: #334155; margin-bottom: 16px;">Welcome, ${patientName}!</h2>
-            <p style="color: #475569; line-height: 1.6;">Your healthcare provider has created an account for you in the RaDixpert system. You can now access your medical reports and chat with your doctors.</p>
-            <p style="color: #475569; line-height: 1.6; margin-top: 16px;">Your temporary login details:</p>
-            <div style="background-color: #e2e8f0; padding: 12px; border-radius: 4px; margin: 16px 0;">
-              <p style="margin: 4px 0; font-family: monospace; font-size: 16px;">Email: ${patientEmail}</p>
-              <p style="margin: 4px 0; font-family: monospace; font-size: 16px;">Temporary Password: ${temporaryPassword}</p>
-            </div>
-            <p style="color: #475569; line-height: 1.6;">You'll be asked to change your password when you first log in.</p>
-            <div style="text-align: center; margin-top: 24px;">
-              <a href="https://radixpert.com/login/patient" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Login to Your Account</a>
-            </div>
-          </div>
-          <div style="text-align: center; margin-top: 24px; color: #94a3b8; font-size: 14px;">
-            <p>If you have any questions, please contact your healthcare provider.</p>
-            <p>&copy; ${new Date().getFullYear()} RaDixpert. All rights reserved.</p>
-          </div>
-        </div>
-      `;
-    } else {
-      subject = "RaDixpert - New Medical Information Available";
-      html = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="text-align: center; margin-bottom: 20px;">
-            <h1 style="color: #10b981; margin-bottom: 5px;">RaDixpert</h1>
-            <p style="color: #64748b; font-size: 16px;">Your Radiology Expert</p>
-          </div>
-          <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-            <h2 style="color: #334155; margin-bottom: 16px;">Hello, ${patientName}!</h2>
-            <p style="color: #475569; line-height: 1.6;">Your healthcare provider has added new medical information to your RaDixpert account. Please log in to your patient portal to view the updates.</p>
-            <div style="text-align: center; margin-top: 24px;">
-              <a href="https://radixpert.com/login/patient" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">View Your Portal</a>
-            </div>
-          </div>
-          <div style="text-align: center; margin-top: 24px; color: #94a3b8; font-size: 14px;">
-            <p>If you have any questions, please contact your healthcare provider.</p>
-            <p>&copy; ${new Date().getFullYear()} RaDixpert. All rights reserved.</p>
-          </div>
-        </div>
-      `;
-    }
-
-    // Call the send-email function
-    const response = await fetch(`https://ruueewpswsmmagpsxbvk.supabase.co/functions/v1/send-email`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        to: patientEmail,
-        subject,
-        html,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || "Failed to send email");
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error("Error sending email:", error);
-    throw error;
-  }
 };
 
 const AddPatientDrawer: React.FC<AddPatientDrawerProps> = ({
@@ -217,74 +132,28 @@ const AddPatientDrawer: React.FC<AddPatientDrawerProps> = ({
     setIsSubmitting(true);
     
     try {
-      // Check if patient already exists
-      const { data: existingPatient, error: checkError } = await supabase
-        .from("patients")
-        .select("id")
-        .eq("email", data.email)
-        .maybeSingle();
+      // Use the patientService to create or update the patient
+      const result = await createPatient({
+        name: data.name,
+        email: data.email,
+        doctorId,
+        dateOfBirth: data.dateOfBirth,
+        gender: data.gender,
+        notes: data.notes,
+        xrays: data.xrays?.map(xray => ({
+          date: xray.date,
+          scanType: "X-Ray" // Default to X-Ray in drawer
+        }))
+      });
 
-      let patientId;
-      let isNewPatient = !existingPatient;
-      let temporaryPassword;
-
-      if (!existingPatient) {
-        // For new patients, create a patient record directly without Auth integration
-        // This fixes the "User not allowed" error by skipping auth user creation
-        const { data: patient, error: patientError } = await supabase
-          .from("patients")
-          .insert({
-            name: data.name,
-            email: data.email,
-            date_of_birth: data.dateOfBirth ? data.dateOfBirth.toISOString().split("T")[0] : null,
-            gender: data.gender || null,
-            notes: data.notes || null,
-            doctor_id: doctorId, // Associate patient with the current doctor
-          })
-          .select()
-          .single();
-
-        if (patientError) {
-          throw patientError;
-        }
-
-        patientId = patient.id;
-        temporaryPassword = generateTemporaryPassword();
-      } else {
-        patientId = existingPatient.id;
-      }
-
-      // Handle X-rays if any
-      if (data.xrays && data.xrays.length > 0) {
-        for (const xray of data.xrays) {
-          // Insert X-ray record
-          const { error: xrayError } = await supabase
-            .from("x_rays")
-            .insert({
-              patient_id: patientId,
-              date: xray.date.toISOString().split("T")[0],
-            });
-
-          if (xrayError) {
-            throw xrayError;
-          }
-        }
-      }
-
-      // Send email to patient - but only for new patients
-      if (isNewPatient) {
-        try {
-          await sendPatientEmail(data.email, data.name, isNewPatient, temporaryPassword);
-        } catch (emailError) {
-          console.error("Failed to send email, but patient was added successfully:", emailError);
-          // Don't throw here, just log the error since patient was added
-        }
+      if (!result.success) {
+        throw new Error(result.error);
       }
 
       toast({
-        title: isNewPatient ? "Patient added successfully" : "Patient information updated",
-        description: isNewPatient 
-          ? "The patient has been added."
+        title: result.isNewPatient ? "Patient added successfully" : "Patient information updated",
+        description: result.isNewPatient 
+          ? "The patient has been added and will receive a notification when they sign up."
           : "The patient has been updated with new information.",
       });
 

@@ -1,6 +1,5 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { createPatientAuth, generateTemporaryPassword, sendPatientWelcomeEmail } from "@/utils/passwordUtils";
 
 export interface CreatePatientParams {
   name: string;
@@ -33,14 +32,9 @@ export const createPatient = async (params: CreatePatientParams): Promise<Patien
 
     let patientId;
     let isNewPatient = !existingPatient;
-    let temporaryPassword;
 
     if (!existingPatient) {
-      // Generate a secure temporary password for new patients
-      temporaryPassword = generateTemporaryPassword(12);
-      console.log("Generated temporary password:", temporaryPassword);
-      
-      // For new patients, create a patient record directly
+      // For new patients, create a patient record
       const { data: patient, error: patientError } = await supabase
         .from("patients")
         .insert({
@@ -59,18 +53,6 @@ export const createPatient = async (params: CreatePatientParams): Promise<Patien
       }
 
       patientId = patient.id;
-      
-      // Create auth account for the patient
-      const authResult = await createPatientAuth({
-        email: params.email,
-        password: temporaryPassword,
-      });
-      
-      if (!authResult.success) {
-        console.warn("Failed to create auth account for patient, but patient record was created", authResult.error);
-      } else {
-        console.log("Patient auth account created successfully");
-      }
     } else {
       patientId = existingPatient.id;
     }
@@ -93,20 +75,31 @@ export const createPatient = async (params: CreatePatientParams): Promise<Patien
       }
     }
 
-    // Send email to patient - but only for new patients
-    if (isNewPatient && temporaryPassword) {
-      try {
-        console.log("Sending welcome email to patient");
-        await sendPatientWelcomeEmail(params.email, params.name, temporaryPassword);
-      } catch (emailError) {
-        console.error("Failed to send email, but patient was added successfully:", emailError);
-        // Don't throw here, just return success with a warning
-        return {
-          success: true,
-          isNewPatient,
-          patientId,
-          error: "Patient added but welcome email could not be sent"
-        };
+    // Create notification for new patients
+    if (isNewPatient) {
+      const { error: notificationError } = await supabase
+        .from("notifications")
+        .insert({
+          patient_id: patientId,
+          title: "Welcome to RaDixpert",
+          message: "Your doctor has added you to RaDixpert. Please sign up using your email address to access your medical records and reports.",
+        });
+
+      if (notificationError) {
+        console.error("Failed to create welcome notification:", notificationError);
+      }
+    } else {
+      // Create notification for existing patients
+      const { error: notificationError } = await supabase
+        .from("notifications")
+        .insert({
+          patient_id: patientId,
+          title: "New Medical Information Added",
+          message: "Your doctor has updated your information. Please log in to view the changes.",
+        });
+
+      if (notificationError) {
+        console.error("Failed to create update notification:", notificationError);
       }
     }
 
@@ -122,5 +115,28 @@ export const createPatient = async (params: CreatePatientParams): Promise<Patien
       isNewPatient: false,
       error: error.message
     };
+  }
+};
+
+// New function to check if an email exists in the patients table
+export const checkPatientEmail = async (email: string): Promise<boolean> => {
+  try {
+    const { data, error } = await supabase
+      .from("patients")
+      .select("id")
+      .eq("email", email)
+      .single();
+    
+    if (error && error.code !== 'PGRST116') {
+      // If there's an error other than "no rows returned", log it
+      console.error("Error checking patient email:", error);
+      return false;
+    }
+    
+    // If we found a patient with this email, return true
+    return !!data;
+  } catch (error) {
+    console.error("Unexpected error checking patient email:", error);
+    return false;
   }
 };

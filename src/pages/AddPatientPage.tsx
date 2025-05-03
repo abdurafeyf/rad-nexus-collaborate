@@ -102,7 +102,7 @@ const AddPatientPage: React.FC = () => {
       toast({
         title: result.isNewPatient ? "Patient added successfully" : "Patient information updated",
         description: result.isNewPatient 
-          ? "The patient has been added and will receive login details."
+          ? "The patient has been added and will receive a notification when they sign up."
           : "The patient has been updated with new information.",
       });
 
@@ -163,7 +163,7 @@ const AddPatientPage: React.FC = () => {
                     disabled={isSubmitting || !currentDoctorId}
                     className="bg-teal-500 hover:bg-teal-600"
                   >
-                    {isSubmitting ? "Adding Patient..." : "Add Patient & Send Login Details"}
+                    {isSubmitting ? "Adding Patient..." : "Add Patient"}
                   </Button>
                 </div>
               </form>
