@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -49,11 +50,6 @@ const App = () => (
                 <AddPatientPage />
               </ProtectedRoute>
             } />
-            <Route path="/dashboard/doctor" element={
-              <ProtectedRoute userType="doctor">
-                <DoctorDashboard />
-              </ProtectedRoute>
-            } />
             <Route path="/doctor/patients/:patientId" element={
               <ProtectedRoute userType="doctor">
                 <PatientDetail />
@@ -93,7 +89,7 @@ const App = () => (
             } />
             <Route path="/patient/chat" element={
               <ProtectedRoute userType="patient">
-                <PatientChat />
+                <PatientChatPage />
               </ProtectedRoute>
             } />
             <Route path="/patient/reports/:reportId" element={
@@ -106,7 +102,7 @@ const App = () => (
                 <MessagesPage />
               </ProtectedRoute>
             } />
-            <Route path="/patient/chat" element={
+            <Route path="/patient/support" element={
               <ProtectedRoute userType="patient">
                 <PatientChatPage />
               </ProtectedRoute>
@@ -117,7 +113,7 @@ const App = () => (
             <Route path="/about" element={<Index />} />
             <Route path="/contact" element={<Index />} />
             
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            {/* Catch-all route */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

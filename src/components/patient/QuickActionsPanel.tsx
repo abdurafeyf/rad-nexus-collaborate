@@ -27,17 +27,19 @@ const QuickActionsPanel: React.FC = () => {
           <Button 
             variant="outline" 
             className="w-full justify-start rounded-lg border-teal-200 text-teal-600 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-300"
+            onClick={() => navigate("/patient/messages")}
           >
             <Phone className="mr-2 h-4 w-4" />
-            <span>Request Follow-Up</span>
+            <span>View Messages</span>
           </Button>
           
           <Button 
             variant="outline" 
             className="w-full justify-start rounded-lg border-amber-200 text-amber-600 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300"
+            onClick={() => navigate("/patient/support")}
           >
             <AlertCircle className="mr-2 h-4 w-4" />
-            <span>Report an Issue</span>
+            <span>Contact Support</span>
           </Button>
         </div>
       </CardContent>

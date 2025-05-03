@@ -32,14 +32,15 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { toast } from "sonner";
 
 type UserType = "doctor" | "patient" | undefined;
 
 const Register = () => {
   const { userType } = useParams<{ userType: UserType }>();
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const { signUp } = useAuth();
+  const { toast: uiToast } = useToast();
+  const { signUp, user, userType: currentUserType } = useAuth();
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -47,10 +48,7 @@ const Register = () => {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [loading, setLoading] = useState(false);
-  const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
-  const [registeredDomains, setRegisteredDomains] = useState<string[]>([]);
-  const [isLoadingDomains, setIsLoadingDomains] = useState(false);
   
   // Organization selection for doctors
   const [organizations, setOrganizations] = useState<any[]>([]);
@@ -59,36 +57,15 @@ const Register = () => {
   const [isLoadingOrganizations, setIsLoadingOrganizations] = useState(false);
   const [showOrgDropdown, setShowOrgDropdown] = useState(false);
 
-  // Fetch registered domains for doctor registration
+  // Redirect if already logged in
   useEffect(() => {
-    const fetchRegisteredDomains = async () => {
-      if (userType === "doctor") {
-        setIsLoadingDomains(true);
-        try {
-          const { data, error } = await supabase
-            .from("authorized_domains")
-            .select("domain");
-          
-          if (error) {
-            console.error("Error fetching authorized domains:", error);
-            toast({
-              title: "Error",
-              description: "Failed to load authorized domains. Please try again later.",
-              variant: "destructive",
-            });
-          } else if (data) {
-            setRegisteredDomains(data.map(item => item.domain));
-          }
-        } catch (error) {
-          console.error("Exception fetching domains:", error);
-        } finally {
-          setIsLoadingDomains(false);
-        }
+    if (user) {
+      if (currentUserType) {
+        toast.info("Already logged in");
+        navigate(`/${currentUserType}/dashboard`);
       }
-    };
-
-    fetchRegisteredDomains();
-  }, [userType, toast]);
+    }
+  }, [user, currentUserType, navigate]);
   
   // Fetch organizations for doctor registration
   useEffect(() => {
@@ -103,11 +80,7 @@ const Register = () => {
           
           if (error) {
             console.error("Error fetching organizations:", error);
-            toast({
-              title: "Error",
-              description: "Failed to load organizations. Please try again later.",
-              variant: "destructive",
-            });
+            toast.error("Failed to load organizations. Please try again later.");
           } else if (data) {
             setOrganizations(data);
           }
@@ -120,26 +93,7 @@ const Register = () => {
     };
 
     fetchOrganizations();
-  }, [userType, toast]);
-
-  const validateEmail = (email: string): boolean => {
-    if (!email || !email.includes("@")) {
-      setEmailError("Please enter a valid email address");
-      return false;
-    }
-    
-    if (userType === "doctor") {
-      const domain = email.split("@")[1];
-      
-      if (registeredDomains.length > 0 && !registeredDomains.includes(domain)) {
-        setEmailError("This email domain is not authorized for doctor registration");
-        return false;
-      }
-    }
-    
-    setEmailError("");
-    return true;
-  };
+  }, [userType]);
 
   const validatePassword = (): boolean => {
     if (password.length < 8) {
@@ -170,16 +124,22 @@ const Register = () => {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!validateEmail(email) || !validatePassword()) {
+    if (!validatePassword()) {
+      return;
+    }
+    
+    if (!firstName || !lastName || !email) {
+      toast.error("Please fill out all required fields");
       return;
     }
     
     if (userType === "doctor" && !selectedOrganizationId) {
-      toast({
-        title: "Organization Required",
-        description: "Please select your organization",
-        variant: "destructive",
-      });
+      toast.error("Please select your organization");
+      return;
+    }
+
+    if (!userType) {
+      toast.error("User type is required");
       return;
     }
     
@@ -190,7 +150,6 @@ const Register = () => {
       const metadata: any = {
         first_name: firstName,
         last_name: lastName,
-        user_type: userType,
       };
       
       // Add organization_id for doctors
@@ -199,7 +158,7 @@ const Register = () => {
       }
       
       // Sign up with email and password using AuthContext
-      const { error, data } = await signUp(email, password, metadata);
+      const { error, data } = await signUp(email, password, userType, metadata);
 
       if (error) {
         throw error;
@@ -207,29 +166,19 @@ const Register = () => {
 
       // Check if email confirmation is required
       if (data?.user && !data.user.email_confirmed_at) {
-        toast({
-          title: "Registration Successful",
-          description: "Please check your email to verify your account.",
-        });
+        toast.success("Registration successful! Please check your email to verify your account.");
         
         // Redirect to login page
         navigate(`/login/${userType}`);
       } else {
-        toast({
-          title: "Registration Successful",
-          description: "Your account has been created successfully.",
-        });
+        toast.success("Registration successful!");
         
         // Redirect to dashboard
         navigate(`/${userType}/dashboard`);
       }
     } catch (error: any) {
       console.error("Registration error:", error);
-      toast({
-        title: "Registration Failed",
-        description: error.message || "An error occurred during registration.",
-        variant: "destructive",
-      });
+      toast.error(error.message || "Registration failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -286,6 +235,7 @@ const Register = () => {
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
                       autoFocus
+                      required
                     />
                     
                     <FormInput
@@ -295,6 +245,7 @@ const Register = () => {
                       placeholder="Enter your last name"
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
+                      required
                     />
                   </div>
                   
@@ -305,8 +256,7 @@ const Register = () => {
                     placeholder="Enter your email address"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    error={emailError}
-                    disabled={isLoadingDomains}
+                    required
                   />
                   
                   {userType === "doctor" && (
@@ -322,6 +272,7 @@ const Register = () => {
                             onChange={(e) => handleSearchOrganization(e.target.value)}
                             placeholder="Search for your organization"
                             className="flex-1 border-none shadow-none focus-visible:ring-0"
+                            disabled={isLoadingOrganizations}
                           />
                           <div className="px-3 text-gray-400">
                             <Search size={18} />
@@ -331,7 +282,11 @@ const Register = () => {
                         {showOrgDropdown && (
                           <div className="absolute z-50 mt-1 w-full rounded-md border border-gray-200 bg-white shadow-lg">
                             <ScrollArea className="h-60 rounded-md">
-                              {filteredOrganizations.length > 0 ? (
+                              {isLoadingOrganizations ? (
+                                <div className="px-4 py-2 text-center">
+                                  Loading organizations...
+                                </div>
+                              ) : filteredOrganizations.length > 0 ? (
                                 filteredOrganizations.map(org => (
                                   <div
                                     key={org.id}
@@ -375,6 +330,7 @@ const Register = () => {
                     placeholder="Create a password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    required
                   />
                   
                   <FormInput
@@ -385,15 +341,16 @@ const Register = () => {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     error={passwordError}
+                    required
                   />
                 </CardContent>
                 <CardFooter className="flex-col space-y-2">
                   <Button
                     type="submit"
                     className="w-full bg-brand-600 hover:bg-brand-700"
-                    disabled={loading || isLoadingDomains || !email || !password || !confirmPassword || !firstName || !lastName || (userType === "doctor" && !selectedOrganizationId)}
+                    disabled={loading || !email || !password || !confirmPassword || !firstName || !lastName || (userType === "doctor" && !selectedOrganizationId)}
                   >
-                    {loading ? "Processing..." : "Create Account"}
+                    {loading ? "Creating Account..." : "Create Account"}
                   </Button>
                   
                   <div className="text-center text-xs text-gray-600">

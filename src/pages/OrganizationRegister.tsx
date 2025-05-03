@@ -20,12 +20,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const OrganizationRegister = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [formState, setFormState] = useState({
     instituteName: "",
@@ -128,24 +127,41 @@ const OrganizationRegister = () => {
         throw domainsError;
       }
       
-      toast({
-        title: "Registration Successful!",
-        description: "Your organization has been registered successfully.",
-        duration: 5000,
-      });
+      // Create admin user with user_type admin
+      const adminUser = {
+        email: formState.adminEmail,
+        password: generateTemporaryPassword(12), // Generate a secure temporary password
+        userMetadata: {
+          user_type: 'admin',
+          organization_id: orgData.id,
+          first_name: formState.adminName.split(' ')[0],
+          last_name: formState.adminName.split(' ').slice(1).join(' ')
+        }
+      };
+
+      // Log the success and show toast notification
+      console.log("Organization registered successfully:", orgData);
+      toast.success("Organization registered successfully!");
       
-      setLoading(false);
+      // Redirect to success page
       navigate("/register/success");
       
     } catch (error: any) {
+      console.error("Registration error:", error);
+      toast.error(error.message || "Failed to register organization");
+    } finally {
       setLoading(false);
-      toast({
-        title: "Registration Failed",
-        description: error.message || "There was an error registering your organization. Please try again.",
-        variant: "destructive",
-        duration: 5000,
-      });
     }
+  };
+
+  // Helper function to generate a secure temporary password
+  const generateTemporaryPassword = (length: number): string => {
+    const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()";
+    let password = "";
+    for (let i = 0; i < length; i++) {
+      password += charset.charAt(Math.floor(Math.random() * charset.length));
+    }
+    return password;
   };
 
   return (
@@ -266,7 +282,7 @@ const OrganizationRegister = () => {
                     className="w-full"
                     disabled={loading}
                   >
-                    {loading ? "Processing..." : "Register and Proceed to Payment"}
+                    {loading ? "Processing..." : "Register Organization"}
                   </Button>
                 </CardFooter>
               </form>

@@ -10,14 +10,16 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, userType }) => {
-  const { user, loading } = useAuth();
+  const { user, userType: currentUserType, loading } = useAuth();
   const location = useLocation();
 
   useEffect(() => {
     if (!loading && !user) {
       console.log('User not authenticated, redirecting to login');
+    } else if (!loading && user && userType && currentUserType !== userType) {
+      console.log(`User type mismatch. Required: ${userType}, Current: ${currentUserType}`);
     }
-  }, [loading, user]);
+  }, [loading, user, userType, currentUserType]);
 
   if (loading) {
     return (
@@ -33,12 +35,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, userType }) =
     return <Navigate to={`/login/${userType || 'patient'}`} state={{ from: location }} replace />;
   }
 
-  // Check if the user type matches (based on user metadata)
-  if (userType && user.user_metadata?.user_type && user.user_metadata.user_type !== userType) {
+  // Check if the user type matches
+  if (userType && currentUserType && currentUserType !== userType) {
     // If user is trying to access a page they're not authorized for,
     // redirect them to their appropriate dashboard
-    const correctUserType = user.user_metadata.user_type;
-    return <Navigate to={`/${correctUserType}/dashboard`} replace />;
+    return <Navigate to={`/${currentUserType}/dashboard`} replace />;
   }
 
   return <>{children}</>;
