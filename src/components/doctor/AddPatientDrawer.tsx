@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { PlusCircle, Trash } from "lucide-react";
+import { PlusCircle, Trash, Calendar, Mail, User } from "lucide-react";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -33,13 +33,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar } from "@/components/ui/calendar";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useToast } from "@/components/ui/use-toast";
+import { cn } from "@/lib/utils";
 
 // Form schema for patient creation
 const patientFormSchema = z.object({
@@ -167,22 +168,6 @@ const sendPatientEmail = async (
   }
 };
 
-const createPatientAuthAccount = async (email: string, password: string) => {
-  try {
-    const { data, error } = await supabase.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true, // Auto-confirm the email
-    });
-    
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error("Error creating patient auth account:", error);
-    throw error;
-  }
-};
-
 const AddPatientDrawer: React.FC<AddPatientDrawerProps> = ({
   open,
   onOpenChange,
@@ -201,8 +186,6 @@ const AddPatientDrawer: React.FC<AddPatientDrawerProps> = ({
       xrays: [],
     },
   });
-  
-  const { fields, append, remove } = form.control._formValues.xrays || [];
 
   // Add new X-ray field
   const addXray = () => {
@@ -239,27 +222,15 @@ const AddPatientDrawer: React.FC<AddPatientDrawerProps> = ({
         .from("patients")
         .select("id")
         .eq("email", data.email)
-        .single();
+        .maybeSingle();
 
       let patientId;
       let isNewPatient = !existingPatient;
       let temporaryPassword;
 
       if (!existingPatient) {
-        // Generate temporary password for new patient
-        temporaryPassword = generateTemporaryPassword();
-        
-        try {
-          // Create auth account for the patient
-          await createPatientAuthAccount(data.email, temporaryPassword);
-        } catch (authError: any) {
-          // If auth account already exists, proceed with patient registration
-          if (!authError.message?.includes("User already registered")) {
-            throw authError;
-          }
-        }
-
-        // Insert patient data
+        // For new patients, create a patient record directly without Auth integration
+        // This fixes the "User not allowed" error by skipping auth user creation
         const { data: patient, error: patientError } = await supabase
           .from("patients")
           .insert({
@@ -278,6 +249,7 @@ const AddPatientDrawer: React.FC<AddPatientDrawerProps> = ({
         }
 
         patientId = patient.id;
+        temporaryPassword = generateTemporaryPassword();
       } else {
         patientId = existingPatient.id;
       }
@@ -296,19 +268,24 @@ const AddPatientDrawer: React.FC<AddPatientDrawerProps> = ({
           if (xrayError) {
             throw xrayError;
           }
-
-          // TODO: Handle file upload if needed
         }
       }
 
-      // Send email to patient
-      await sendPatientEmail(data.email, data.name, isNewPatient, temporaryPassword);
+      // Send email to patient - but only for new patients
+      if (isNewPatient) {
+        try {
+          await sendPatientEmail(data.email, data.name, isNewPatient, temporaryPassword);
+        } catch (emailError) {
+          console.error("Failed to send email, but patient was added successfully:", emailError);
+          // Don't throw here, just log the error since patient was added
+        }
+      }
 
       toast({
         title: isNewPatient ? "Patient added successfully" : "Patient information updated",
         description: isNewPatient 
-          ? "The patient has been added and received login instructions."
-          : "The patient has been notified of the new information.",
+          ? "The patient has been added."
+          : "The patient has been updated with new information.",
       });
 
       // Reset the form
@@ -330,219 +307,263 @@ const AddPatientDrawer: React.FC<AddPatientDrawerProps> = ({
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="max-h-[90vh] overflow-y-auto">
-        <DrawerHeader>
-          <DrawerTitle>Add New Patient</DrawerTitle>
-          <DrawerDescription>
-            Fill out the form below to add a new patient to your dashboard.
+        <DrawerHeader className="bg-gradient-to-r from-teal-500 to-teal-400 text-white">
+          <DrawerTitle className="text-2xl font-bold">Add New Patient</DrawerTitle>
+          <DrawerDescription className="text-teal-50">
+            Enter patient details below and they'll be added to your dashboard.
           </DrawerDescription>
         </DrawerHeader>
         
-        <div className="px-4">
+        <div className="px-4 py-6">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="John Doe" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="patient@example.com"
-                        type="email"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <FormField
-                  control={form.control}
-                  name="dateOfBirth"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Date of Birth</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant={"outline"}
-                              className="w-full pl-3 text-left font-normal"
-                            >
-                              {field.value ? (
-                                format(field.value, "PPP")
-                              ) : (
-                                <span className="text-muted-foreground">
-                                  Pick a date
-                                </span>
-                              )}
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={field.value}
-                            onSelect={field.onChange}
-                            initialFocus
-                            disabled={(date) =>
-                              date > new Date() || date < new Date("1900-01-01")
-                            }
+              <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-100">
+                <h3 className="text-lg font-semibold mb-4 flex items-center text-gray-800">
+                  <User className="mr-2 h-5 w-5 text-teal-500" />
+                  Personal Information
+                </h3>
+                
+                <div className="grid gap-6">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-gray-700">Full Name</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="John Doe" 
+                            {...field}
+                            className="border-gray-200 focus:border-teal-500 focus:ring-teal-500" 
                           />
-                        </PopoverContent>
-                      </Popover>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-gray-700">Email</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Mail className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                            <Input
+                              placeholder="patient@example.com"
+                              type="email"
+                              className="pl-10 border-gray-200 focus:border-teal-500 focus:ring-teal-500"
+                              {...field}
+                            />
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                    <FormField
+                      control={form.control}
+                      name="dateOfBirth"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                          <FormLabel className="text-gray-700">Date of Birth</FormLabel>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <FormControl>
+                                <Button
+                                  variant={"outline"}
+                                  className={cn(
+                                    "w-full pl-3 text-left font-normal border-gray-200",
+                                    !field.value && "text-gray-400"
+                                  )}
+                                >
+                                  <Calendar className="mr-2 h-4 w-4 text-gray-400" />
+                                  {field.value ? (
+                                    format(field.value, "PPP")
+                                  ) : (
+                                    <span>Pick a date</span>
+                                  )}
+                                </Button>
+                              </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <CalendarComponent
+                                mode="single"
+                                selected={field.value}
+                                onSelect={field.onChange}
+                                initialFocus
+                                disabled={(date) =>
+                                  date > new Date() || date < new Date("1900-01-01")
+                                }
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="gender"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-gray-700">Gender</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger className="border-gray-200 focus:ring-teal-500">
+                                <SelectValue placeholder="Select gender" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="male">Male</SelectItem>
+                              <SelectItem value="female">Female</SelectItem>
+                              <SelectItem value="other">Other</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-100">
+                <h3 className="text-lg font-semibold mb-4 text-gray-800">Additional Information</h3>
+                
                 <FormField
                   control={form.control}
-                  name="gender"
+                  name="notes"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Gender</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        value={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select gender" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="male">Male</SelectItem>
-                          <SelectItem value="female">Female</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <FormLabel className="text-gray-700">Medical Notes</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Any important notes about the patient's medical history..."
+                          className="min-h-[100px] border-gray-200 focus:border-teal-500 focus:ring-teal-500"
+                          {...field}
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
               </div>
 
-              <FormField
-                control={form.control}
-                name="notes"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Notes</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Any important notes about the patient..."
-                        className="min-h-[100px]"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">X-ray Records</h3>
+              <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-100">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-800">X-ray Records</h3>
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     onClick={addXray}
+                    className="border-teal-200 hover:bg-teal-50 text-teal-600"
                   >
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Add X-ray
                   </Button>
                 </div>
 
-                {form.watch("xrays")?.map((xray, index) => (
-                  <div
-                    key={index}
-                    className="rounded-md border border-gray-200 p-4"
-                  >
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-medium">X-ray #{index + 1}</h4>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeXray(index)}
+                {form.watch("xrays")?.length ? (
+                  <div className="space-y-4">
+                    {form.watch("xrays")?.map((xray, index) => (
+                      <div
+                        key={index}
+                        className="rounded-md border border-gray-200 p-4 bg-gray-50"
                       >
-                        <Trash className="h-4 w-4 text-red-500" />
-                      </Button>
-                    </div>
-                    
-                    <div className="mt-3 space-y-4">
-                      <FormField
-                        control={form.control}
-                        name={`xrays.${index}.date`}
-                        render={({ field }) => (
-                          <FormItem className="flex flex-col">
-                            <FormLabel>Date</FormLabel>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <FormControl>
-                                  <Button
-                                    variant={"outline"}
-                                    className="w-full pl-3 text-left font-normal"
-                                  >
-                                    {field.value ? (
-                                      format(field.value, "PPP")
-                                    ) : (
-                                      <span className="text-muted-foreground">
-                                        Pick a date
-                                      </span>
-                                    )}
-                                  </Button>
-                                </FormControl>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-auto p-0" align="start">
-                                <Calendar
-                                  mode="single"
-                                  selected={field.value}
-                                  onSelect={field.onChange}
-                                  disabled={(date) => date > new Date()}
-                                  initialFocus
-                                />
-                              </PopoverContent>
-                            </Popover>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      {/* File upload can be added here if needed */}
-                    </div>
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-medium text-gray-700">X-ray #{index + 1}</h4>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeXray(index)}
+                            className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                          >
+                            <Trash className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        
+                        <div className="mt-3">
+                          <FormField
+                            control={form.control}
+                            name={`xrays.${index}.date`}
+                            render={({ field }) => (
+                              <FormItem className="flex flex-col">
+                                <FormLabel className="text-gray-700">Date Taken</FormLabel>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <FormControl>
+                                      <Button
+                                        variant={"outline"}
+                                        className={cn(
+                                          "w-full pl-3 text-left font-normal border-gray-200",
+                                          !field.value && "text-gray-400"
+                                        )}
+                                      >
+                                        <Calendar className="mr-2 h-4 w-4 text-gray-400" />
+                                        {field.value ? (
+                                          format(field.value, "PPP")
+                                        ) : (
+                                          <span>Pick a date</span>
+                                        )}
+                                      </Button>
+                                    </FormControl>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-auto p-0" align="start">
+                                    <CalendarComponent
+                                      mode="single"
+                                      selected={field.value}
+                                      onSelect={field.onChange}
+                                      disabled={(date) => date > new Date()}
+                                      initialFocus
+                                    />
+                                  </PopoverContent>
+                                </Popover>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                ) : (
+                  <div className="text-center py-6 text-gray-500 bg-gray-50 rounded-md border border-dashed border-gray-200">
+                    <Calendar className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                    <p>No X-ray records added yet</p>
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={addXray}
+                      className="mt-2 text-teal-600 hover:text-teal-700"
+                    >
+                      Add your first X-ray record
+                    </Button>
+                  </div>
+                )}
               </div>
 
-              <DrawerFooter className="px-0">
+              <DrawerFooter className="px-0 pt-2 pb-4">
                 <Button 
                   type="submit" 
                   disabled={isSubmitting || !doctorId}
+                  className="bg-teal-500 hover:bg-teal-600 w-full"
                 >
-                  {isSubmitting ? "Adding..." : "Add Patient"}
+                  {isSubmitting ? "Adding Patient..." : "Add Patient"}
                 </Button>
                 <DrawerClose asChild>
-                  <Button variant="outline">Cancel</Button>
+                  <Button variant="outline" className="w-full">Cancel</Button>
                 </DrawerClose>
               </DrawerFooter>
             </form>
