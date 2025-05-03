@@ -1,26 +1,34 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import {
   ArrowUpDown,
-  MoreHorizontal,
+  Edit,
   Plus,
   RefreshCw,
   Search,
-  Trash2
+  Trash2,
+  X,
+  ToggleRight,
+  ToggleLeft,
+  User
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -31,8 +39,7 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
-import NewNavBar from "@/components/NewNavBar";
-import Footer from "@/components/Footer";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import NewSidebar from "@/components/NewSidebar";
 import AddPatientDrawer from "@/components/doctor/AddPatientDrawer";
 import { Badge } from "@/components/ui/badge";
@@ -68,11 +75,13 @@ const DoctorDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "passive">("all");
   const [sortConfig, setSortConfig] = useState<{
     key: keyof Patient;
     direction: "asc" | "desc";
   }>({ key: "last_visit", direction: "desc" });
   const [currentDoctor, setCurrentDoctor] = useState<Doctor | null>(null);
+  const [hoveredRow, setHoveredRow] = useState<string | null>(null);
 
   // First fetch the current doctor's info
   useEffect(() => {
@@ -198,9 +207,20 @@ const DoctorDashboard = () => {
     setSortConfig({ key, direction });
   };
 
+  // Clear search input
+  const handleClearSearch = () => {
+    setSearchQuery("");
+  };
+
   // Apply sorting and filtering
   const sortedAndFilteredPatients = [...patients]
     .filter((patient) => {
+      // Status filter
+      if (statusFilter !== "all" && patient.status !== statusFilter) {
+        return false;
+      }
+      
+      // Search filter
       if (!searchQuery) return true;
       return (
         patient.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -249,23 +269,33 @@ const DoctorDashboard = () => {
     }
   };
 
+  // Helper function to get patient initials for avatar
+  const getPatientInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(part => part[0])
+      .join('')
+      .toUpperCase()
+      .substring(0, 2);
+  };
+
   return (
     <NewSidebar type="doctor">
       <div className="flex min-h-screen flex-col bg-gray-50">
-        <div className="p-6 md:p-8">
-          <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="p-4 md:p-6">
+          <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight text-gray-900">Doctor Dashboard</h1>
-              <p className="text-muted-foreground">
+              <h1 className="text-2xl font-bold tracking-tight text-gray-900">Doctor Dashboard</h1>
+              <p className="text-sm text-gray-600">
                 Manage your patients and their records
               </p>
             </div>
-            <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="flex gap-2">
               <Button
                 onClick={() => fetchPatients()}
                 variant="outline"
                 size="sm"
-                className="flex items-center gap-2"
+                className="flex items-center gap-1"
               >
                 <RefreshCw className="h-4 w-4" />
                 Refresh
@@ -273,7 +303,7 @@ const DoctorDashboard = () => {
               <Button
                 onClick={() => setIsDrawerOpen(true)}
                 size="sm"
-                className="flex items-center gap-2 bg-teal-500 hover:bg-teal-600"
+                className="flex items-center gap-1"
               >
                 <Plus className="h-4 w-4" />
                 Add Patient
@@ -281,48 +311,59 @@ const DoctorDashboard = () => {
             </div>
           </div>
 
-          <Card className="overflow-hidden border-0 shadow-subtle">
-            <CardHeader className="bg-white pb-0">
-              <CardTitle>Patients</CardTitle>
-            </CardHeader>
-
-            <CardContent className="p-0">
-              <div className="flex items-center p-4">
-                <div className="relative flex-grow">
+          <Card className="overflow-hidden border border-gray-100 shadow-sm">
+            <div className="flex flex-col gap-2 p-3 md:flex-row md:items-center md:justify-between">
+              <div className="relative flex-grow">
+                <div className="relative flex w-full md:w-80">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
                   <Input
                     placeholder="Search by name or email..."
-                    className="pl-8 border border-gray-200 focus:border-teal-500 focus:ring focus:ring-teal-200"
+                    className="pl-8 pr-8 border border-gray-200 focus:border-teal-500 focus:ring-1 focus:ring-teal-200"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
+                  {searchQuery && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-9 w-9 text-gray-500 hover:text-gray-800"
+                      onClick={handleClearSearch}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               </div>
+              <div className="flex gap-2">
+                <Select 
+                  value={statusFilter}
+                  onValueChange={(value) => setStatusFilter(value as any)}
+                >
+                  <SelectTrigger className="w-[130px] border border-gray-200">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Patients</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="passive">Closed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
 
+            <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead
-                        className="cursor-pointer"
-                        onClick={() => handleSort("name")}
-                      >
+                    <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
+                      <TableHead className="w-[240px]">
                         <div className="flex items-center gap-1">
-                          Name
-                          {sortConfig.key === "name" && (
-                            <ArrowUpDown className="h-3 w-3" />
-                          )}
+                          Patient
                         </div>
                       </TableHead>
-                      <TableHead
-                        className="cursor-pointer"
-                        onClick={() => handleSort("email")}
-                      >
+                      <TableHead>
                         <div className="flex items-center gap-1">
                           Email
-                          {sortConfig.key === "email" && (
-                            <ArrowUpDown className="h-3 w-3" />
-                          )}
                         </div>
                       </TableHead>
                       <TableHead
@@ -331,20 +372,12 @@ const DoctorDashboard = () => {
                       >
                         <div className="flex items-center gap-1">
                           Last Visit
-                          {sortConfig.key === "last_visit" && (
-                            <ArrowUpDown className="h-3 w-3" />
-                          )}
+                          <ArrowUpDown className="h-3 w-3" />
                         </div>
                       </TableHead>
-                      <TableHead
-                        className="cursor-pointer"
-                        onClick={() => handleSort("status")}
-                      >
+                      <TableHead>
                         <div className="flex items-center gap-1">
                           Status
-                          {sortConfig.key === "status" && (
-                            <ArrowUpDown className="h-3 w-3" />
-                          )}
                         </div>
                       </TableHead>
                       <TableHead className="text-right">Actions</TableHead>
@@ -373,73 +406,85 @@ const DoctorDashboard = () => {
                       </TableRow>
                     ) : (
                       sortedAndFilteredPatients.map((patient) => (
-                        <TableRow key={patient.id} className="hover-card">
-                          <TableCell className="font-medium">
+                        <TableRow 
+                          key={patient.id} 
+                          className="group transition-colors hover:bg-teal-50/30 hover:shadow-sm"
+                          onMouseEnter={() => setHoveredRow(patient.id)}
+                          onMouseLeave={() => setHoveredRow(null)}
+                        >
+                          <TableCell>
                             <div 
-                              className="cursor-pointer hover:text-teal-600 transition-colors"
+                              className="flex items-center gap-3 cursor-pointer"
                               onClick={() => navigate(`/doctor/patients/${patient.id}`)}
                             >
-                              {patient.name}
+                              <Avatar className="h-8 w-8 bg-teal-100">
+                                <AvatarFallback className="text-xs font-medium text-teal-700">
+                                  {getPatientInitials(patient.name)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="font-medium text-gray-900 hover:text-teal-600 transition-colors">
+                                {patient.name}
+                              </span>
                             </div>
                           </TableCell>
-                          <TableCell>{patient.email}</TableCell>
-                          <TableCell>
-                            {format(new Date(patient.last_visit), "PPP")}
+                          <TableCell className="text-gray-600">{patient.email}</TableCell>
+                          <TableCell className="text-gray-600">
+                            {format(new Date(patient.last_visit), "MMM d, yyyy")}
                           </TableCell>
                           <TableCell>
                             <Badge
                               variant={patient.status === "active" ? "default" : "outline"}
-                              className={patient.status === "active" ? "bg-teal-500 hover:bg-teal-600" : ""}
+                              className={patient.status === "active" ? "bg-teal-500 hover:bg-teal-600" : "text-gray-600"}
                             >
                               {patient.status === "active" ? "Active" : "Closed"}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  className="h-8 w-8 p-0"
-                                >
-                                  <span className="sr-only">Open menu</span>
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                <DropdownMenuItem
-                                  onClick={() => navigate(`/doctor/patients/${patient.id}`)}
-                                  className="cursor-pointer"
-                                >
-                                  View details
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => navigate(`/doctor/patients/${patient.id}/chat`)}
-                                  className="cursor-pointer"
-                                >
-                                  Chat
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => navigate(`/doctor/patients/${patient.id}/scan/upload`)}
-                                  className="cursor-pointer"
-                                >
-                                  Upload Scan
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={() => handleToggleStatus(patient.id, patient.status)}
-                                  className="cursor-pointer"
-                                >
-                                  {patient.status === "active" ? "Close case" : "Reopen case"}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  className="text-red-600 cursor-pointer"
-                                  onClick={() => handleDeletePatient(patient.id)}
-                                >
-                                  Delete patient
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                            <div className={`flex justify-end gap-1 ${hoveredRow === patient.id ? 'opacity-100' : 'opacity-0 md:group-hover:opacity-100'} transition-opacity`}>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => navigate(`/doctor/patients/${patient.id}`)}
+                                title="Edit patient"
+                              >
+                                <Edit className="h-4 w-4 text-gray-500" />
+                              </Button>
+                              
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handleToggleStatus(patient.id, patient.status)}
+                                title={patient.status === "active" ? "Close case" : "Reopen case"}
+                              >
+                                {patient.status === "active" ? (
+                                  <ToggleRight className="h-4 w-4 text-teal-500" />
+                                ) : (
+                                  <ToggleLeft className="h-4 w-4 text-gray-500" />
+                                )}
+                              </Button>
+                              
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-gray-500 hover:text-red-600"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem
+                                    className="text-red-600 cursor-pointer"
+                                    onClick={() => handleDeletePatient(patient.id)}
+                                  >
+                                    Confirm Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))

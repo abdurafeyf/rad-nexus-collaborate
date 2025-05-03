@@ -22,8 +22,8 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { toast } from "@/components/ui/use-toast";
+} from "./ui/dropdown-menu";
+import { toast } from "./ui/use-toast";
 
 interface SidebarLinkProps {
   to: string;
@@ -45,8 +45,8 @@ const SidebarLink: React.FC<SidebarLinkProps> = ({
     className={cn(
       "flex items-center px-4 py-3 mb-1 rounded-lg transition-colors",
       isActive 
-        ? "bg-teal-50 text-teal-700" 
-        : "text-gray-700 hover:bg-gray-100",
+        ? "bg-teal-50 text-teal-700 border-l-4 border-teal-500" 
+        : "border-l-4 border-transparent text-gray-700 hover:bg-gray-100",
       isCollapsed ? "justify-center" : ""
     )}
   >
@@ -135,13 +135,46 @@ const NewSidebar: React.FC<NewSidebarProps> = ({ type, children, className }) =>
   
   return (
     <div className={cn("flex flex-grow", className)}>
+      {/* User profile dropdown in header */}
+      <div className="fixed top-4 right-4 z-50 hidden md:block">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 bg-white shadow-sm border">
+              <Avatar className="h-9 w-9">
+                <AvatarFallback className="text-xs bg-teal-100 text-teal-700">
+                  {userInitials}
+                </AvatarFallback>
+              </Avatar>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <div className="px-2 py-1.5 text-sm font-medium">
+              {userFullName}
+            </div>
+            <div className="px-2 py-1 text-xs text-gray-500">
+              {user?.email}
+            </div>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="cursor-pointer" onClick={() => navigate(`/${type}/settings`)}>
+              <Settings className="mr-2 h-4 w-4" />
+              <span>Settings</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="cursor-pointer text-red-600 focus:text-red-600" onClick={handleLogout}>
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>Log out</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      
       {/* Mobile menu button */}
       <div className="md:hidden fixed top-4 left-4 z-50">
         <Button
           variant="outline"
           size="icon"
           onClick={toggleMobileMenu}
-          className="bg-white shadow-subtle"
+          className="bg-white shadow-sm"
         >
           <Menu className="h-5 w-5" />
         </Button>
@@ -151,7 +184,7 @@ const NewSidebar: React.FC<NewSidebarProps> = ({ type, children, className }) =>
       <div
         className={cn(
           "hidden md:flex flex-col fixed z-20 h-screen bg-white border-r transition-all duration-300",
-          isCollapsed ? "w-[70px]" : "w-[240px]"
+          isCollapsed ? "w-[60px]" : "w-[230px]"
         )}
       >
         <div className="flex items-center justify-between p-4 border-b">
@@ -192,55 +225,13 @@ const NewSidebar: React.FC<NewSidebarProps> = ({ type, children, className }) =>
             />
           ))}
         </div>
-        
-        <div className="p-4 border-t">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  "w-full justify-between border-teal-200 bg-teal-50 text-teal-600 hover:bg-teal-100",
-                  isCollapsed ? "p-2" : ""
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <Avatar className="h-7 w-7">
-                    <AvatarFallback className="text-xs bg-teal-100 text-teal-700">
-                      {userInitials}
-                    </AvatarFallback>
-                  </Avatar>
-                  {!isCollapsed && <span className="truncate">{userFullName}</span>}
-                </div>
-                {!isCollapsed && <ChevronRight className="h-4 w-4" />}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <div className="px-2 py-1.5 text-sm font-medium">
-                {userFullName}
-              </div>
-              <div className="px-2 py-1 text-xs text-gray-500">
-                {user?.email}
-              </div>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="cursor-pointer" onClick={() => navigate(`/${type}/settings`)}>
-                <Settings className="mr-2 h-4 w-4" />
-                <span>Settings</span>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="cursor-pointer text-red-600 focus:text-red-600" onClick={handleLogout}>
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>Log out</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
       </div>
       
       {/* Mobile sidebar */}
       {isMobileOpen && (
         <div className="md:hidden fixed inset-0 z-40 bg-black/50" onClick={() => setIsMobileOpen(false)}>
           <div 
-            className="fixed left-0 top-0 h-screen w-[240px] bg-white shadow-lg"
+            className="fixed left-0 top-0 h-screen w-[230px] bg-white shadow-lg"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between p-4 border-b">
@@ -302,8 +293,8 @@ const NewSidebar: React.FC<NewSidebarProps> = ({ type, children, className }) =>
       <div 
         className={cn(
           "flex-grow w-full transition-all duration-300",
-          "md:ml-[70px]",
-          !isCollapsed && "md:ml-[240px]"
+          "md:ml-[60px]",
+          !isCollapsed && "md:ml-[230px]"
         )}
       >
         {children}
