@@ -7,7 +7,7 @@ import {
   MoreHorizontal,
   Plus,
   RefreshCw,
-  SearchIcon,
+  Search,
   Trash2
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,8 +31,9 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
-import NavBar from "@/components/NavBar";
+import NewNavBar from "@/components/NewNavBar";
 import Footer from "@/components/Footer";
+import NewSidebar from "@/components/NewSidebar";
 import AddPatientDrawer from "@/components/doctor/AddPatientDrawer";
 import { Badge } from "@/components/ui/badge";
 
@@ -179,13 +180,12 @@ const DoctorDashboard = () => {
     });
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <NavBar />
-      <main className="flex-grow bg-gray-50">
-        <div className="container py-8">
+    <NewSidebar type="doctor">
+      <div className="flex min-h-screen flex-col bg-gray-50">
+        <div className="p-6 md:p-8">
           <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">Doctor Dashboard</h1>
+              <h1 className="text-3xl font-bold tracking-tight text-gray-900">Doctor Dashboard</h1>
               <p className="text-muted-foreground">
                 Manage your patients and their records
               </p>
@@ -203,7 +203,7 @@ const DoctorDashboard = () => {
               <Button
                 onClick={() => setIsDrawerOpen(true)}
                 size="sm"
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 bg-teal-500 hover:bg-teal-600"
               >
                 <Plus className="h-4 w-4" />
                 Add Patient
@@ -211,7 +211,7 @@ const DoctorDashboard = () => {
             </div>
           </div>
 
-          <Card className="overflow-hidden">
+          <Card className="overflow-hidden border-0 shadow-subtle">
             <CardHeader className="bg-white pb-0">
               <CardTitle>Patients</CardTitle>
             </CardHeader>
@@ -219,10 +219,10 @@ const DoctorDashboard = () => {
             <CardContent className="p-0">
               <div className="flex items-center p-4">
                 <div className="relative flex-grow">
-                  <SearchIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
                   <Input
                     placeholder="Search by name or email..."
-                    className="pl-8"
+                    className="pl-8 border border-gray-200 focus:border-teal-500 focus:ring focus:ring-teal-200"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
@@ -287,7 +287,9 @@ const DoctorDashboard = () => {
                           colSpan={5}
                           className="h-24 text-center"
                         >
-                          Loading patients...
+                          <div className="flex justify-center">
+                            <div className="animate-spin h-8 w-8 border-4 border-teal-500 border-t-transparent rounded-full"></div>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ) : sortedAndFilteredPatients.length === 0 ? (
@@ -301,10 +303,10 @@ const DoctorDashboard = () => {
                       </TableRow>
                     ) : (
                       sortedAndFilteredPatients.map((patient) => (
-                        <TableRow key={patient.id}>
+                        <TableRow key={patient.id} className="hover-card">
                           <TableCell className="font-medium">
                             <div 
-                              className="cursor-pointer hover:text-primary"
+                              className="cursor-pointer hover:text-teal-600 transition-colors"
                               onClick={() => navigate(`/doctor/patients/${patient.id}`)}
                             >
                               {patient.name}
@@ -317,6 +319,7 @@ const DoctorDashboard = () => {
                           <TableCell>
                             <Badge
                               variant={patient.status === "active" ? "default" : "outline"}
+                              className={patient.status === "active" ? "bg-teal-500 hover:bg-teal-600" : ""}
                             >
                               {patient.status === "active" ? "Active" : "Closed"}
                             </Badge>
@@ -336,22 +339,31 @@ const DoctorDashboard = () => {
                                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                 <DropdownMenuItem
                                   onClick={() => navigate(`/doctor/patients/${patient.id}`)}
+                                  className="cursor-pointer"
                                 >
                                   View details
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   onClick={() => navigate(`/doctor/patients/${patient.id}/chat`)}
+                                  className="cursor-pointer"
                                 >
                                   Chat
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => navigate(`/doctor/patients/${patient.id}/scan/upload`)}
+                                  className="cursor-pointer"
+                                >
+                                  Upload Scan
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
                                   onClick={() => handleToggleStatus(patient.id, patient.status)}
+                                  className="cursor-pointer"
                                 >
                                   {patient.status === "active" ? "Close case" : "Reopen case"}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
-                                  className="text-red-600"
+                                  className="text-red-600 cursor-pointer"
                                   onClick={() => handleDeletePatient(patient.id)}
                                 >
                                   Delete patient
@@ -368,8 +380,7 @@ const DoctorDashboard = () => {
             </CardContent>
           </Card>
         </div>
-      </main>
-      <Footer />
+      </div>
       
       <AddPatientDrawer 
         open={isDrawerOpen} 
@@ -379,7 +390,7 @@ const DoctorDashboard = () => {
           setIsDrawerOpen(false);
         }}
       />
-    </div>
+    </NewSidebar>
   );
 };
 

@@ -76,6 +76,33 @@ export default {
 					900: '#00436f',
 					950: '#002b49'
 				},
+				// New accent colors
+				teal: {
+					50: '#effefa',
+					100: '#c7fef2',
+					200: '#96fae9',
+					300: '#56f0dd',
+					400: '#20e0cf',
+					500: '#04c2b4',
+					600: '#059b93',
+					700: '#0a7b77',
+					800: '#0e6160',
+					900: '#0f5151',
+					950: '#022e2e',
+				},
+				coral: {
+					50: '#fff2f0',
+					100: '#ffe3e0',
+					200: '#ffccc5',
+					300: '#ffa79d',
+					400: '#ff7566',
+					500: '#ff4432',
+					600: '#ed2411',
+					700: '#c71a09',
+					800: '#a41a0c',
+					900: '#881c10',
+					950: '#4b0a04',
+				},
 				rad: {
 					light: '#f5f5f7',
 					dark: '#1d1d1f',
@@ -107,12 +134,17 @@ export default {
 				'float': {
 					'0%, 100%': { transform: 'translateY(0)' },
 					'50%': { transform: 'translateY(-10px)' }
+				},
+				'pulse-slow': {
+					'0%, 100%': { opacity: '1' },
+					'50%': { opacity: '0.8' }
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
 				'accordion-up': 'accordion-up 0.2s ease-out',
-				'float': 'float 6s ease-in-out infinite'
+				'float': 'float 6s ease-in-out infinite',
+				'pulse-slow': 'pulse-slow 3s ease-in-out infinite'
 			}
 		}
 	},
