@@ -21,9 +21,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
-// This is a placeholder for Stripe integration
-// In a real implementation, you would connect to Stripe
 const OrganizationRegister = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -84,7 +83,7 @@ const OrganizationRegister = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
     if (!validateForm()) {
@@ -93,10 +92,42 @@ const OrganizationRegister = () => {
     
     setLoading(true);
     
-    // This is where you would integrate with Stripe and Supabase in a real implementation
-    // For now, we'll just simulate a successful registration
-    
-    setTimeout(() => {
+    try {
+      // First, insert the organization record
+      const { data: orgData, error: orgError } = await supabase
+        .from('organizations')
+        .insert({
+          institute_name: formState.instituteName,
+          admin_name: formState.adminName,
+          admin_email: formState.adminEmail,
+          plan: formState.plan
+        })
+        .select()
+        .single();
+      
+      if (orgError) {
+        throw orgError;
+      }
+      
+      // Parse and insert domains
+      const domainList = formState.domains
+        .split(',')
+        .map(domain => domain.trim())
+        .filter(domain => domain.length > 0);
+      
+      const domainsToInsert = domainList.map(domain => ({
+        organization_id: orgData.id,
+        domain: domain
+      }));
+      
+      const { error: domainsError } = await supabase
+        .from('authorized_domains')
+        .insert(domainsToInsert);
+      
+      if (domainsError) {
+        throw domainsError;
+      }
+      
       toast({
         title: "Registration Successful!",
         description: "Your organization has been registered successfully.",
@@ -105,7 +136,16 @@ const OrganizationRegister = () => {
       
       setLoading(false);
       navigate("/register/success");
-    }, 1500);
+      
+    } catch (error: any) {
+      setLoading(false);
+      toast({
+        title: "Registration Failed",
+        description: error.message || "There was an error registering your organization. Please try again.",
+        variant: "destructive",
+        duration: 5000,
+      });
+    }
   };
 
   return (
