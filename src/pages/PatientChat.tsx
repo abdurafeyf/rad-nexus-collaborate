@@ -11,6 +11,7 @@ import NavBar from "@/components/NavBar";
 import Footer from "@/components/Footer";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -384,22 +385,22 @@ const PatientChat = () => {
     <div className="flex min-h-screen flex-col">
       <NavBar />
       <main className="flex-grow bg-gray-50">
-        <div className="container max-w-4xl py-8">
+        <div className="container max-w-4xl py-6">
           {/* Back navigation */}
           <Button
             onClick={() => navigate(`/doctor/patients/${patientId}`)}
             variant="ghost"
-            className="mb-6 -ml-3"
+            className="mb-4 -ml-3"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Patient
           </Button>
 
           {/* Chat header */}
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h1 className="text-2xl font-bold">Chat with {patient.name}</h1>
-              <p className="text-muted-foreground">{patient.email}</p>
+              <h1 className="text-xl font-bold sm:text-2xl">Chat with {patient.name}</h1>
+              <p className="text-sm text-muted-foreground">{patient.email}</p>
             </div>
             <div className={`px-2 py-1 rounded-full text-xs font-medium ${
               patient.status === 'active' 
@@ -410,14 +411,14 @@ const PatientChat = () => {
             </div>
           </div>
 
-          {/* Chat container */}
-          <Card className="mb-4 flex h-[calc(100vh-300px)] flex-col overflow-hidden border-brand-100 shadow-md">
-            {/* Messages area */}
-            <div className="flex-grow overflow-y-auto bg-gradient-to-b from-gray-50 to-white p-4">
+          {/* Chat container - now with improved styling */}
+          <Card className="mb-4 flex h-[calc(100vh-240px)] flex-col overflow-hidden border shadow-lg">
+            {/* Messages area - now using ScrollArea for smoother scrolling */}
+            <ScrollArea className="flex-grow p-4">
               {messages.length === 0 ? (
-                <div className="flex h-full flex-col items-center justify-center text-center">
-                  <div className="rounded-full bg-brand-50 p-3">
-                    <MessageIcon className="h-6 w-6 text-brand-600" />
+                <div className="flex h-full flex-col items-center justify-center text-center p-4">
+                  <div className="rounded-full bg-gray-100 p-4">
+                    <MessageIcon className="h-6 w-6 text-gray-500" />
                   </div>
                   <h3 className="mt-4 text-lg font-semibold">No messages yet</h3>
                   <p className="mt-2 text-sm text-muted-foreground">
@@ -439,7 +440,7 @@ const PatientChat = () => {
                         }`}
                       >
                         <Avatar className={cn("h-8 w-8", isDoctor(message) ? "ml-2" : "mr-2")}>
-                          <AvatarFallback className={isDoctor(message) ? "bg-brand-500 text-white" : "bg-muted"}>
+                          <AvatarFallback className={isDoctor(message) ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-700"}>
                             {isDoctor(message)
                               ? "DR"
                               : getInitials(patient.name)}
@@ -450,7 +451,7 @@ const PatientChat = () => {
                             className={cn(
                               "rounded-lg p-3",
                               isDoctor(message)
-                                ? "bg-brand-500 text-white"
+                                ? "bg-blue-500 text-white"
                                 : "bg-gray-100"
                             )}
                           >
@@ -532,10 +533,10 @@ const PatientChat = () => {
                   <div ref={endOfMessagesRef} />
                 </div>
               )}
-            </div>
+            </ScrollArea>
 
-            {/* Message input area */}
-            <div className="border-t bg-white p-4 shadow-inner">
+            {/* Message input area - now with improved styling */}
+            <div className="border-t bg-white p-3 shadow-inner">
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -557,6 +558,7 @@ const PatientChat = () => {
                       size="icon"
                       variant="outline"
                       disabled={isUploading}
+                      className="flex-shrink-0"
                     >
                       {isUploading ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -580,6 +582,7 @@ const PatientChat = () => {
                   variant={isRecording ? "destructive" : "outline"}
                   onClick={isRecording ? stopRecording : startRecording}
                   disabled={isUploading}
+                  className="flex-shrink-0"
                 >
                   {isRecording ? (
                     <StopCircle className="h-4 w-4" />
@@ -602,7 +605,7 @@ const PatientChat = () => {
                 <Button
                   type="submit"
                   disabled={!newMessage.trim() || isSending || isRecording}
-                  className="bg-brand-600 hover:bg-brand-700"
+                  className="bg-blue-600 hover:bg-blue-700 flex-shrink-0"
                 >
                   {isSending ? (
                     <Loader2 className="h-4 w-4 animate-spin" />

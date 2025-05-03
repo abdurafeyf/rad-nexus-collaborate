@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
+import ProtectedRoute from "./components/auth/ProtectedRoute";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import OrganizationRegister from "./pages/OrganizationRegister";
@@ -36,16 +37,48 @@ const App = () => (
             <Route path="/register/:userType" element={<Register />} />
             
             {/* Doctor routes */}
-            <Route path="/doctor/dashboard" element={<DoctorDashboard />} />
-            <Route path="/dashboard/doctor" element={<DoctorDashboard />} />
-            <Route path="/doctor/patients/:patientId" element={<PatientDetail />} />
-            <Route path="/doctor/patients/:patientId/chat" element={<PatientChat />} />
-            <Route path="/doctor/patients/:patientId/scan/upload" element={<ScanUpload />} />
-            <Route path="/doctor/reports/:reportId/review" element={<ReportReview />} />
+            <Route path="/doctor/dashboard" element={
+              <ProtectedRoute userType="doctor">
+                <DoctorDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/dashboard/doctor" element={
+              <ProtectedRoute userType="doctor">
+                <DoctorDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/doctor/patients/:patientId" element={
+              <ProtectedRoute userType="doctor">
+                <PatientDetail />
+              </ProtectedRoute>
+            } />
+            <Route path="/doctor/patients/:patientId/chat" element={
+              <ProtectedRoute userType="doctor">
+                <PatientChat />
+              </ProtectedRoute>
+            } />
+            <Route path="/doctor/patients/:patientId/scan/upload" element={
+              <ProtectedRoute userType="doctor">
+                <ScanUpload />
+              </ProtectedRoute>
+            } />
+            <Route path="/doctor/reports/:reportId/review" element={
+              <ProtectedRoute userType="doctor">
+                <ReportReview />
+              </ProtectedRoute>
+            } />
             
             {/* Patient routes */}
-            <Route path="/patient/portal" element={<PatientPortal />} />
-            <Route path="/patient/reports/:reportId" element={<PatientReport />} />
+            <Route path="/patient/portal" element={
+              <ProtectedRoute userType="patient">
+                <PatientPortal />
+              </ProtectedRoute>
+            } />
+            <Route path="/patient/reports/:reportId" element={
+              <ProtectedRoute userType="patient">
+                <PatientReport />
+              </ProtectedRoute>
+            } />
             
             <Route path="/features" element={<Index />} />
             <Route path="/pricing" element={<Index />} />
