@@ -178,7 +178,8 @@ const Login = () => {
         toast({
           title: "Email Not Verified",
           description: "Please check your email to verify your account.",
-          variant: "warning",
+          // Fix: Change "warning" to "default" which is an allowed variant
+          variant: "default",
         });
       }
 
@@ -248,9 +249,8 @@ const Login = () => {
     if (!email) return;
     
     try {
-      const { error } = await supabase.auth.resendConfirmationEmail({
-        email,
-      });
+      // Fix: Using the correct method name from Supabase v2 API
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
       
       if (error) throw error;
       
