@@ -108,7 +108,14 @@ const PatientPortal = () => {
             hospital_name,
             status,
             published_at,
-            created_at
+            created_at,
+            scans(
+              doctor_id,
+              doctors(
+                first_name,
+                last_name
+              )
+            )
           `)
           .eq("patient_id", patientData.id)
           .order("created_at", { ascending: false });
@@ -120,11 +127,18 @@ const PatientPortal = () => {
           const reportDate = report.published_at || report.created_at;
           const title = `Radiology Report - ${format(parseISO(reportDate), "MMM d, yyyy")}`;
           
+          // Get doctor name if available
+          let doctorName = "Unknown Doctor";
+          if (report.scans && report.scans.doctors) {
+            const { first_name, last_name } = report.scans.doctors;
+            doctorName = `Dr. ${first_name} ${last_name}`;
+          }
+          
           return {
             id: `case-${report.id}`,
             report_id: report.id,
             hospital_name: report.hospital_name || "General Hospital",
-            doctor_name: "Dr. Sarah Johnson",
+            doctor_name: doctorName,
             title: title,
             date: reportDate,
             status: report.status,
@@ -132,24 +146,6 @@ const PatientPortal = () => {
             patient_id: report.patient_id
           };
         });
-        
-        // If no cases found in the database, create some mock data
-        if (formattedCases.length === 0) {
-          const today = new Date();
-          const mockCase = {
-            id: "demo-case-1",
-            report_id: "demo-report-1",
-            hospital_name: "City Medical Center",
-            doctor_name: "Dr. Sarah Johnson",
-            title: `Chest X-Ray - ${format(today, "MMM d, yyyy")}`,
-            date: today.toISOString(),
-            status: "published",
-            scan_id: "demo-scan-1",
-            patient_id: patientData.id
-          };
-          
-          formattedCases.push(mockCase);
-        }
         
         setCases(formattedCases);
         
@@ -168,10 +164,21 @@ const PatientPortal = () => {
         const unreadNotifications = notificationsData?.filter(n => !n.read) || [];
         setUnreadCount(unreadNotifications.length);
         
+        // Fetch unread messages count
+        const { data: messagesData, error: messagesError } = await supabase
+          .from("chats")
+          .select("id")
+          .eq("patient_id", patientData.id)
+          .eq("sender_type", "doctor")
+          .order("created_at", { ascending: false })
+          .limit(10);
+          
+        const unreadMessages = messagesData?.length || 0;
+        
         // Set summary stats
         setStats({
           totalCases: formattedCases.length,
-          unreadMessages: 2, // Mock data for unread messages
+          unreadMessages: unreadMessages,
           pendingForms: unreadNotifications.filter(n => n.title.includes("consent") || n.message.includes("consent")).length
         });
         
@@ -464,7 +471,7 @@ const PatientPortal = () => {
           {/* Mobile Quick Actions (sticky footer) */}
           {isMobile && !showNotifications && !showProfile && (
             <div className="fixed bottom-0 left-0 right-0 bg-white border-t p-4 flex items-center justify-around z-10">
-              <Button variant="ghost" size="sm" className="flex-col gap-1">
+              <Button variant="ghost" size="sm" className="flex-col gap-1" onClick={() => navigate("/patient/chat")}>
                 <MessageSquare className="h-5 w-5" />
                 <span className="text-xs">Messages</span>
               </Button>

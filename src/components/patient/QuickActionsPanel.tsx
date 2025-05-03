@@ -18,10 +18,10 @@ const QuickActionsPanel: React.FC = () => {
           <Button 
             variant="outline" 
             className="w-full justify-start border-coral-200 text-coral-600 hover:bg-coral-50 hover:text-coral-700 hover:border-coral-300"
-            onClick={() => navigate("/patient/messages")}
+            onClick={() => navigate("/patient/chat")}
           >
             <MessageSquare className="mr-2 h-4 w-4" />
-            View All Messages
+            Chat with Doctor
           </Button>
           
           <Button 
