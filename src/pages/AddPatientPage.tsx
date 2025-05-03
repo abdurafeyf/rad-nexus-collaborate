@@ -35,6 +35,7 @@ import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import NewSidebar from "@/components/NewSidebar";
 import { useAuth } from "@/contexts/AuthContext";
+import { createPatientAuth, generateTemporaryPassword, sendPatientWelcomeEmail } from "@/utils/passwordUtils";
 
 // Form schema for patient creation
 const patientFormSchema = z.object({
@@ -58,102 +59,6 @@ const patientFormSchema = z.object({
 });
 
 type PatientFormValues = z.infer<typeof patientFormSchema>;
-
-// Generate a random password of specified length
-const generateTemporaryPassword = (length = 10) => {
-  const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+";
-  let password = "";
-  for (let i = 0; i < length; i++) {
-    const randomIndex = Math.floor(Math.random() * charset.length);
-    password += charset[randomIndex];
-  }
-  return password;
-};
-
-// Send email to patient
-const sendPatientEmail = async (
-  patientEmail: string, 
-  patientName: string, 
-  isNewPatient: boolean, 
-  temporaryPassword?: string
-) => {
-  try {
-    let subject, html;
-    
-    if (isNewPatient) {
-      subject = "Welcome to RaDixpert - Your Patient Account";
-      html = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="text-align: center; margin-bottom: 20px;">
-            <h1 style="color: #10b981; margin-bottom: 5px;">RaDixpert</h1>
-            <p style="color: #64748b; font-size: 16px;">Your Radiology Expert</p>
-          </div>
-          <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-            <h2 style="color: #334155; margin-bottom: 16px;">Welcome, ${patientName}!</h2>
-            <p style="color: #475569; line-height: 1.6;">Your healthcare provider has created an account for you in the RaDixpert system. You can now access your medical reports and chat with your doctors.</p>
-            <p style="color: #475569; line-height: 1.6; margin-top: 16px;">Your temporary login details:</p>
-            <div style="background-color: #e2e8f0; padding: 12px; border-radius: 4px; margin: 16px 0;">
-              <p style="margin: 4px 0; font-family: monospace; font-size: 16px;">Email: ${patientEmail}</p>
-              <p style="margin: 4px 0; font-family: monospace; font-size: 16px;">Temporary Password: ${temporaryPassword}</p>
-            </div>
-            <p style="color: #475569; line-height: 1.6;">You'll be asked to change your password when you first log in.</p>
-            <div style="text-align: center; margin-top: 24px;">
-              <a href="https://radixpert.com/login/patient" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Login to Your Account</a>
-            </div>
-          </div>
-          <div style="text-align: center; margin-top: 24px; color: #94a3b8; font-size: 14px;">
-            <p>If you have any questions, please contact your healthcare provider.</p>
-            <p>&copy; ${new Date().getFullYear()} RaDixpert. All rights reserved.</p>
-          </div>
-        </div>
-      `;
-    } else {
-      subject = "RaDixpert - New Medical Information Available";
-      html = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="text-align: center; margin-bottom: 20px;">
-            <h1 style="color: #10b981; margin-bottom: 5px;">RaDixpert</h1>
-            <p style="color: #64748b; font-size: 16px;">Your Radiology Expert</p>
-          </div>
-          <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-            <h2 style="color: #334155; margin-bottom: 16px;">Hello, ${patientName}!</h2>
-            <p style="color: #475569; line-height: 1.6;">Your healthcare provider has added new medical information to your RaDixpert account. Please log in to your patient portal to view the updates.</p>
-            <div style="text-align: center; margin-top: 24px;">
-              <a href="https://radixpert.com/login/patient" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">View Your Portal</a>
-            </div>
-          </div>
-          <div style="text-align: center; margin-top: 24px; color: #94a3b8; font-size: 14px;">
-            <p>If you have any questions, please contact your healthcare provider.</p>
-            <p>&copy; ${new Date().getFullYear()} RaDixpert. All rights reserved.</p>
-          </div>
-        </div>
-      `;
-    }
-
-    // Call the send-email function
-    const response = await fetch(`https://ruueewpswsmmagpsxbvk.supabase.co/functions/v1/send-email`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        to: patientEmail,
-        subject,
-        html,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || "Failed to send email");
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error("Error sending email:", error);
-    throw error;
-  }
-};
 
 const AddPatientPage: React.FC = () => {
   const { toast } = useToast();
@@ -260,7 +165,19 @@ const AddPatientPage: React.FC = () => {
         }
 
         patientId = patient.id;
-        temporaryPassword = generateTemporaryPassword();
+        
+        // Generate a secure temporary password
+        temporaryPassword = generateTemporaryPassword(12);
+        
+        // Create auth account for the patient
+        const authResult = await createPatientAuth({
+          email: data.email,
+          password: temporaryPassword,
+        });
+        
+        if (!authResult.success) {
+          console.warn("Failed to create auth account for patient, but patient record was created", authResult.error);
+        }
       } else {
         patientId = existingPatient.id;
       }
@@ -283,19 +200,29 @@ const AddPatientPage: React.FC = () => {
       }
 
       // Send email to patient - but only for new patients
-      if (isNewPatient) {
+      if (isNewPatient && temporaryPassword) {
         try {
-          await sendPatientEmail(data.email, data.name, isNewPatient, temporaryPassword);
+          await sendPatientWelcomeEmail(data.email, data.name, temporaryPassword);
+          
+          toast({
+            title: "Email sent",
+            description: "Welcome email with login details has been sent to the patient.",
+          });
         } catch (emailError) {
           console.error("Failed to send email, but patient was added successfully:", emailError);
-          // Don't throw here, just log the error since patient was added
+          
+          toast({
+            title: "Patient added",
+            description: "Patient was added but welcome email could not be sent. Please check your email configuration.",
+            variant: "warning",
+          });
         }
       }
 
       toast({
         title: isNewPatient ? "Patient added successfully" : "Patient information updated",
         description: isNewPatient 
-          ? "The patient has been added."
+          ? "The patient has been added and will receive login details."
           : "The patient has been updated with new information.",
       });
 
@@ -589,7 +516,7 @@ const AddPatientPage: React.FC = () => {
                     disabled={isSubmitting || !currentDoctorId}
                     className="bg-teal-500 hover:bg-teal-600"
                   >
-                    {isSubmitting ? "Adding Patient..." : "Add Patient"}
+                    {isSubmitting ? "Adding Patient..." : "Add Patient & Send Login Details"}
                   </Button>
                 </div>
               </form>
