@@ -9,7 +9,7 @@ const QuickActionsPanel: React.FC = () => {
   const navigate = useNavigate();
   
   return (
-    <Card className="border-0 shadow-subtle">
+    <Card className="border-0 shadow-subtle h-full">
       <CardHeader>
         <CardTitle className="text-lg">Quick Actions</CardTitle>
       </CardHeader>
@@ -17,35 +17,36 @@ const QuickActionsPanel: React.FC = () => {
         <div className="space-y-3">
           <Button 
             variant="outline" 
-            className="w-full justify-start border-coral-200 text-coral-600 hover:bg-coral-50 hover:text-coral-700 hover:border-coral-300"
+            className="w-full justify-start rounded-lg border-coral-200 text-coral-600 hover:bg-coral-50 hover:text-coral-700 hover:border-coral-300"
             onClick={() => navigate("/patient/chat")}
           >
             <MessageSquare className="mr-2 h-4 w-4" />
-            Chat with Doctor
+            <span className="truncate">Chat with Doctor</span>
           </Button>
           
           <Button 
             variant="outline" 
-            className="w-full justify-start border-teal-200 text-teal-600 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-300"
+            className="w-full justify-start rounded-lg border-teal-200 text-teal-600 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-300"
           >
             <Phone className="mr-2 h-4 w-4" />
-            Request Follow-Up
+            <span className="truncate">Request Follow-Up</span>
           </Button>
           
           <Button 
             variant="outline" 
-            className="w-full justify-start"
+            className="w-full justify-start rounded-lg border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300"
+            onClick={() => navigate("/doctor/patients/:patientId/scan/upload")}
           >
             <Upload className="mr-2 h-4 w-4" />
-            Upload New Scan
+            <span className="truncate">Upload New Scan</span>
           </Button>
           
           <Button 
             variant="outline" 
-            className="w-full justify-start"
+            className="w-full justify-start rounded-lg border-amber-200 text-amber-600 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300"
           >
             <AlertCircle className="mr-2 h-4 w-4" />
-            Report an Issue
+            <span className="truncate">Report an Issue</span>
           </Button>
         </div>
       </CardContent>

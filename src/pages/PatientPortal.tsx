@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Calendar, FileText, MessageSquare, ChevronRight, Download, Upload, Phone, Bell } from "lucide-react";
@@ -37,8 +36,8 @@ type Notification = {
 };
 
 type DoctorData = {
-  first_name: string;
-  last_name: string;
+  first_name?: string;
+  last_name?: string;
 };
 
 const PatientPortal = () => {
@@ -223,14 +222,14 @@ const PatientPortal = () => {
   return (
     <NewSidebar type="patient">
       <div className="flex min-h-screen flex-col bg-gray-50">
-        <div className="p-6 md:p-8">
+        <div className="mx-auto w-full max-w-7xl p-4 sm:p-6 md:p-8">
           {/* Page header */}
           <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between">
             <div>
               <h1 className="text-3xl font-bold mb-1 text-gray-900">
                 Welcome, <span className="border-b-2 border-teal-500 pb-1">{patientName}</span>
               </h1>
-              <p className="text-gray-500">Track your radiology journey and healthcare records</p>
+              <p className="text-gray-600">Track your radiology journey and healthcare records</p>
             </div>
             
             {/* Action buttons */}
@@ -267,7 +266,7 @@ const PatientPortal = () => {
           
           {/* Summary cards at the top */}
           {!showNotifications && !showProfile && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
               <Card className="border-0 shadow-subtle">
                 <CardContent className="p-6">
                   <div className="flex flex-col">
@@ -320,9 +319,9 @@ const PatientPortal = () => {
           )}
           
           {/* Main content area */}
-          <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-4 gap-8'}`}>
+          <div className="grid gap-8 grid-cols-1 lg:grid-cols-3">
             {/* Timeline or notifications */}
-            <div className={`${isMobile ? 'col-span-1' : 'col-span-3'}`}>
+            <div className="lg:col-span-2">
               {showNotifications ? (
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
@@ -358,22 +357,31 @@ const PatientPortal = () => {
                   {/* Timeline title */}
                   <div>
                     <h2 className="text-xl font-semibold mb-2 text-gray-800">Medical Timeline</h2>
-                    <p className="text-muted-foreground">Your case history in chronological order</p>
+                    <p className="text-gray-600">Your case history in chronological order</p>
                   </div>
                   
                   {/* Timeline */}
                   <div className="relative space-y-6 before:absolute before:inset-0 before:left-9 before:h-full before:border-l-2 before:border-dashed before:border-gray-200 pl-12 md:pl-0 md:ml-9">
                     {cases.length === 0 ? (
-                      <Card className="border-0 shadow-subtle">
-                        <CardContent className="text-center py-12">
-                          <p className="text-gray-500">No medical records found.</p>
-                        </CardContent>
-                      </Card>
+                      <div className="text-center py-8">
+                        <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-gray-100 mb-4">
+                          <FileText className="h-8 w-8 text-gray-400" />
+                        </div>
+                        <h3 className="text-lg font-medium text-gray-700 mb-2">No medical records yet</h3>
+                        <p className="text-gray-500 mb-4">Upload your first scan to get started</p>
+                        <Button
+                          onClick={() => navigate("/doctor/patients/:patientId/scan/upload")}
+                          className="bg-teal-500 hover:bg-teal-600 rounded-lg"
+                        >
+                          <Upload className="mr-2 h-4 w-4" />
+                          Upload Your First Scan
+                        </Button>
+                      </div>
                     ) : (
                       cases.map((caseItem, index) => (
                         <div key={caseItem.id} className="relative">
                           {/* Timeline dot */}
-                          <div className="absolute -left-9 top-6 h-5 w-5 rounded-full bg-white border-2 border-teal-500"></div>
+                          <div className="absolute -left-9 top-6 h-4 w-4 rounded-full bg-white border-2 border-teal-500"></div>
                           
                           {/* Case card */}
                           <Card 
@@ -386,7 +394,7 @@ const PatientPortal = () => {
                             <CardContent className="p-6">
                               <div className="flex flex-col md:flex-row md:items-center md:justify-between">
                                 <div>
-                                  <div className="flex items-center mb-2 gap-3">
+                                  <div className="flex flex-wrap items-center mb-2 gap-3">
                                     <h3 className="text-lg font-medium">
                                       {caseItem.title}
                                     </h3>
@@ -413,7 +421,7 @@ const PatientPortal = () => {
                                   {caseItem.status === "published" ? (
                                     <Button
                                       onClick={() => navigate(`/patient/reports/${caseItem.report_id}`)}
-                                      className="bg-teal-500 hover:bg-teal-600 rounded-full group relative"
+                                      className="bg-teal-500 hover:bg-teal-600 rounded-lg group relative"
                                     >
                                       <FileText className="mr-2 h-4 w-4" />
                                       View Report
@@ -424,7 +432,7 @@ const PatientPortal = () => {
                                       </span>
                                     </Button>
                                   ) : (
-                                    <Button variant="outline" disabled className="rounded-full">
+                                    <Button variant="outline" disabled className="rounded-lg">
                                       <FileText className="mr-2 h-4 w-4" />
                                       Report Pending
                                     </Button>
@@ -433,7 +441,7 @@ const PatientPortal = () => {
                                   <Button
                                     variant="outline"
                                     onClick={() => navigate(`/patient/chat`)}
-                                    className="border-coral-200 text-coral-600 hover:bg-coral-50 hover:text-coral-700 hover:border-coral-300 rounded-full"
+                                    className="border-coral-200 text-coral-600 hover:bg-coral-50 hover:text-coral-700 hover:border-coral-300 rounded-lg"
                                   >
                                     <MessageSquare className="mr-2 h-4 w-4" />
                                     Chat with Doctor
@@ -451,28 +459,26 @@ const PatientPortal = () => {
             </div>
             
             {/* Sidebar / Quick actions */}
-            {!isMobile && !showNotifications && !showProfile && (
-              <div className="col-span-1">
-                <QuickActionsPanel />
-                
-                {/* Upcoming appointments card */}
-                <Card className="border-0 shadow-subtle mt-6">
-                  <CardHeader>
-                    <CardTitle className="text-lg">Upcoming</CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-center text-gray-500 py-6">
-                    <p>No upcoming appointments</p>
-                    <Button 
-                      variant="outline" 
-                      className="mt-4 border-teal-200 text-teal-600 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-300 rounded-full"
-                    >
-                      <Calendar className="mr-2 h-4 w-4" />
-                      Schedule Appointment
-                    </Button>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
+            <div className="space-y-6 col-span-1">
+              <QuickActionsPanel />
+              
+              {/* Upcoming appointments card */}
+              <Card className="border-0 shadow-subtle">
+                <CardHeader>
+                  <CardTitle className="text-lg">Upcoming</CardTitle>
+                </CardHeader>
+                <CardContent className="text-center text-gray-500 py-6">
+                  <p>No upcoming appointments</p>
+                  <Button 
+                    variant="outline" 
+                    className="mt-4 border-teal-200 text-teal-600 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-300 rounded-lg"
+                  >
+                    <Calendar className="mr-2 h-4 w-4" />
+                    Schedule Appointment
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
           </div>
           
           {/* Mobile Quick Actions (sticky footer) */}
