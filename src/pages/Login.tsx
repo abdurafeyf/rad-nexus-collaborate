@@ -22,6 +22,7 @@ import {
   Lock
 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client"; // Add this import
 
 type UserType = "doctor" | "patient" | "admin" | undefined;
 
