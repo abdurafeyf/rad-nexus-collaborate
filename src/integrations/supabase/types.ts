@@ -38,6 +38,47 @@ export type Database = {
           },
         ]
       }
+      chats: {
+        Row: {
+          created_at: string
+          file_path: string | null
+          file_type: string | null
+          id: string
+          is_voice_note: boolean | null
+          message: string | null
+          patient_id: string
+          sender_type: string
+        }
+        Insert: {
+          created_at?: string
+          file_path?: string | null
+          file_type?: string | null
+          id?: string
+          is_voice_note?: boolean | null
+          message?: string | null
+          patient_id: string
+          sender_type: string
+        }
+        Update: {
+          created_at?: string
+          file_path?: string | null
+          file_type?: string | null
+          id?: string
+          is_voice_note?: boolean | null
+          message?: string | null
+          patient_id?: string
+          sender_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chats_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           admin_email: string
@@ -67,6 +108,74 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      patients: {
+        Row: {
+          created_at: string
+          date_of_birth: string | null
+          email: string
+          gender: string | null
+          id: string
+          last_visit: string
+          name: string
+          notes: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          date_of_birth?: string | null
+          email: string
+          gender?: string | null
+          id?: string
+          last_visit?: string
+          name: string
+          notes?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          date_of_birth?: string | null
+          email?: string
+          gender?: string | null
+          id?: string
+          last_visit?: string
+          name?: string
+          notes?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      x_rays: {
+        Row: {
+          created_at: string
+          date: string
+          file_path: string | null
+          id: string
+          patient_id: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          file_path?: string | null
+          id?: string
+          patient_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          file_path?: string | null
+          id?: string
+          patient_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "x_rays_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
