@@ -53,6 +53,7 @@ const patientFormSchema = z.object({
       z.object({
         date: z.date(),
         file: z.instanceof(File).optional(),
+        scanType: z.enum(["X-Ray", "MRI", "CT", "Ultrasound", "Other"]).default("X-Ray"),
       })
     )
     .optional(),
@@ -109,7 +110,7 @@ const AddPatientPage: React.FC = () => {
     const currentXrays = form.getValues("xrays") || [];
     form.setValue("xrays", [
       ...currentXrays,
-      { date: new Date(), file: undefined },
+      { date: new Date(), file: undefined, scanType: "X-Ray" },
     ]);
   };
 
@@ -146,6 +147,10 @@ const AddPatientPage: React.FC = () => {
       let temporaryPassword;
 
       if (!existingPatient) {
+        // Generate a secure temporary password for new patients
+        temporaryPassword = generateTemporaryPassword(12);
+        console.log("Generated temporary password:", temporaryPassword);
+        
         // For new patients, create a patient record directly
         const { data: patient, error: patientError } = await supabase
           .from("patients")
@@ -166,9 +171,6 @@ const AddPatientPage: React.FC = () => {
 
         patientId = patient.id;
         
-        // Generate a secure temporary password
-        temporaryPassword = generateTemporaryPassword(12);
-        
         // Create auth account for the patient
         const authResult = await createPatientAuth({
           email: data.email,
@@ -177,6 +179,8 @@ const AddPatientPage: React.FC = () => {
         
         if (!authResult.success) {
           console.warn("Failed to create auth account for patient, but patient record was created", authResult.error);
+        } else {
+          console.log("Patient auth account created successfully");
         }
       } else {
         patientId = existingPatient.id;
@@ -191,6 +195,7 @@ const AddPatientPage: React.FC = () => {
             .insert({
               patient_id: patientId,
               date: xray.date.toISOString().split("T")[0],
+              scan_type: xray.scanType
             });
 
           if (xrayError) {
@@ -202,6 +207,7 @@ const AddPatientPage: React.FC = () => {
       // Send email to patient - but only for new patients
       if (isNewPatient && temporaryPassword) {
         try {
+          console.log("Sending welcome email to patient");
           await sendPatientWelcomeEmail(data.email, data.name, temporaryPassword);
           
           toast({
@@ -214,7 +220,6 @@ const AddPatientPage: React.FC = () => {
           toast({
             title: "Patient added",
             description: "Patient was added but welcome email could not be sent. Please check your email configuration.",
-            // Change from "warning" to "destructive" to fix the TypeScript error
             variant: "destructive",
           });
         }
@@ -410,7 +415,7 @@ const AddPatientPage: React.FC = () => {
 
                 <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-100">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-gray-800">X-ray Records</h3>
+                    <h3 className="text-lg font-semibold text-gray-800">Scan Records</h3>
                     <Button
                       type="button"
                       variant="outline"
@@ -419,7 +424,7 @@ const AddPatientPage: React.FC = () => {
                       className="border-teal-200 hover:bg-teal-50 text-teal-600"
                     >
                       <PlusCircle className="mr-2 h-4 w-4" />
-                      Add X-ray
+                      Add Scan
                     </Button>
                   </div>
 
@@ -431,7 +436,7 @@ const AddPatientPage: React.FC = () => {
                           className="rounded-md border border-gray-200 p-4 bg-gray-50"
                         >
                           <div className="flex items-center justify-between">
-                            <h4 className="font-medium text-gray-700">X-ray #{index + 1}</h4>
+                            <h4 className="font-medium text-gray-700">Scan #{index + 1}</h4>
                             <Button
                               type="button"
                               variant="ghost"
@@ -443,7 +448,35 @@ const AddPatientPage: React.FC = () => {
                             </Button>
                           </div>
                           
-                          <div className="mt-3">
+                          <div className="mt-3 space-y-3">
+                            <FormField
+                              control={form.control}
+                              name={`xrays.${index}.scanType`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel className="text-gray-700">Scan Type</FormLabel>
+                                  <Select
+                                    onValueChange={field.onChange}
+                                    defaultValue={field.value}
+                                  >
+                                    <FormControl>
+                                      <SelectTrigger className="border-gray-200 focus:ring-teal-500">
+                                        <SelectValue placeholder="Select scan type" />
+                                      </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                      <SelectItem value="X-Ray">X-Ray</SelectItem>
+                                      <SelectItem value="MRI">MRI</SelectItem>
+                                      <SelectItem value="CT">CT Scan</SelectItem>
+                                      <SelectItem value="Ultrasound">Ultrasound</SelectItem>
+                                      <SelectItem value="Other">Other</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            
                             <FormField
                               control={form.control}
                               name={`xrays.${index}.date`}
@@ -490,7 +523,7 @@ const AddPatientPage: React.FC = () => {
                   ) : (
                     <div className="text-center py-6 text-gray-500 bg-gray-50 rounded-md border border-dashed border-gray-200">
                       <Calendar className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-                      <p>No X-ray records added yet</p>
+                      <p>No scan records added yet</p>
                       <Button 
                         type="button" 
                         variant="ghost" 
@@ -498,7 +531,7 @@ const AddPatientPage: React.FC = () => {
                         onClick={addXray}
                         className="mt-2 text-teal-600 hover:text-teal-700"
                       >
-                        Add your first X-ray record
+                        Add your first scan record
                       </Button>
                     </div>
                   )}

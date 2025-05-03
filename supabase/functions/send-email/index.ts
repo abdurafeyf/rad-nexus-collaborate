@@ -32,6 +32,9 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error("Missing required fields: to, subject, or html");
     }
 
+    console.log("Attempting to send email to:", to);
+    console.log("Email subject:", subject);
+
     const { data, error } = await resend.emails.send({
       from,
       to,

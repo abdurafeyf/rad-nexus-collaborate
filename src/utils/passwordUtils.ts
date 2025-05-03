@@ -4,11 +4,21 @@ import { supabase } from "@/integrations/supabase/client";
 export const generateTemporaryPassword = (length = 10): string => {
   const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+";
   let password = "";
-  for (let i = 0; i < length; i++) {
+  
+  // Ensure we have at least one of each: uppercase, lowercase, number, and special character
+  password += charset.charAt(Math.floor(Math.random() * 26) + 26); // uppercase
+  password += charset.charAt(Math.floor(Math.random() * 26)); // lowercase
+  password += charset.charAt(Math.floor(Math.random() * 10) + 52); // number
+  password += charset.charAt(Math.floor(Math.random() * 12) + 62); // special char
+  
+  // Fill the rest of the password
+  for (let i = 4; i < length; i++) {
     const randomIndex = Math.floor(Math.random() * charset.length);
     password += charset[randomIndex];
   }
-  return password;
+  
+  // Shuffle the password
+  return password.split('').sort(() => 0.5 - Math.random()).join('');
 };
 
 export interface PatientAuthParams {
@@ -18,19 +28,34 @@ export interface PatientAuthParams {
 
 export const createPatientAuth = async ({ email, password }: PatientAuthParams) => {
   try {
-    // Create the auth user
-    const { data, error } = await supabase.auth.admin.createUser({
+    console.log("Creating patient auth account for:", email);
+    
+    // First, check if a user with this email already exists
+    const { data: existingUser } = await supabase.auth.signInWithPassword({
+      email,
+      password: 'dummy-password-for-check-only' // This will fail if user exists, but that's expected
+    });
+    
+    if (existingUser?.user) {
+      console.log("User already exists, not creating a new one");
+      return { success: true, userId: existingUser.user.id, userExists: true };
+    }
+    
+    // Create the auth user - use regular signUp as we don't have access to admin.createUser in the client
+    const { data, error } = await supabase.auth.signUp({
       email: email,
       password: password,
-      email_confirm: true, // Auto-confirm email
-      user_metadata: {
-        role: "patient"
+      options: {
+        data: {
+          user_type: "patient"
+        }
       }
     });
     
     if (error) throw error;
     
-    return { success: true, userId: data.user.id };
+    console.log("Patient auth created successfully:", data.user?.id);
+    return { success: true, userId: data.user?.id, userExists: false };
   } catch (error: any) {
     console.error("Error creating patient auth:", error);
     return { success: false, error };
@@ -43,6 +68,8 @@ export const sendPatientWelcomeEmail = async (
   temporaryPassword: string
 ) => {
   try {
+    console.log("Sending welcome email to:", patientEmail);
+    
     const subject = "Welcome to RaDixpert - Your Patient Account";
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -60,7 +87,7 @@ export const sendPatientWelcomeEmail = async (
           </div>
           <p style="color: #475569; line-height: 1.6;">You'll be asked to change your password when you first log in.</p>
           <div style="text-align: center; margin-top: 24px;">
-            <a href="https://radixpert.com/login/patient" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Login to Your Account</a>
+            <a href="https://ruueewpswsmmagpsxbvk.supabase.co/auth/v1/verify?next=/login/patient" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Login to Your Account</a>
           </div>
         </div>
         <div style="text-align: center; margin-top: 24px; color: #94a3b8; font-size: 14px;">
