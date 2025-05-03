@@ -30,7 +30,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import NewSidebar from "@/components/NewSidebar";
@@ -214,7 +214,8 @@ const AddPatientPage: React.FC = () => {
           toast({
             title: "Patient added",
             description: "Patient was added but welcome email could not be sent. Please check your email configuration.",
-            variant: "warning",
+            // Change from "warning" to "destructive" to fix the TypeScript error
+            variant: "destructive",
           });
         }
       }
