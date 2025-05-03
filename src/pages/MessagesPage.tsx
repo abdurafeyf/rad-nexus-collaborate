@@ -11,22 +11,81 @@ import { supabase } from "@/integrations/supabase/client";
 import { Search, MessageSquare, ChevronRight, User } from "lucide-react";
 
 const MessagesPage = () => {
-  const { user } = useAuth();
+  const { user, userType } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   
   const [conversations, setConversations] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [userType, setUserType] = useState<"doctor" | "patient">("doctor");
   const [currentDoctor, setCurrentDoctor] = useState<any>(null);
+  const [patientInfo, setPatientInfo] = useState<any>(null);
   
+  // Fetch patient info if user is a patient
   useEffect(() => {
-    if (user) {
-      const type = user.user_metadata?.user_type || "doctor";
-      setUserType(type);
-    }
-  }, [user]);
+    const fetchPatientInfo = async () => {
+      if (!user || userType !== "patient") return;
+      
+      try {
+        console.log("Fetching patient info for email:", user.email);
+        
+        // First, try to get the patient by email
+        const { data: patientData, error: patientError } = await supabase
+          .from("patients")
+          .select("*")
+          .eq("email", user.email)
+          .maybeSingle();
+          
+        if (patientError && !patientError.message.includes("No rows found")) {
+          throw patientError;
+        }
+        
+        if (patientData) {
+          console.log("Patient found by email:", patientData);
+          setPatientInfo(patientData);
+        } else if (user.user_metadata?.patient_id) {
+          // If no match by email, try using patient_id from user metadata
+          const { data: patientById, error: patientByIdError } = await supabase
+            .from("patients")
+            .select("*")
+            .eq("id", user.user_metadata.patient_id)
+            .maybeSingle();
+            
+          if (patientByIdError && !patientByIdError.message.includes("No rows found")) {
+            throw patientByIdError;
+          }
+          
+          if (patientById) {
+            console.log("Patient found by ID:", patientById);
+            setPatientInfo(patientById);
+          } else {
+            console.log("No patient record found for this user");
+            toast({
+              title: "Profile not found",
+              description: "Could not find your patient profile",
+              variant: "destructive",
+            });
+          }
+        } else {
+          console.log("No patient_id in user metadata and no matching email");
+          toast({
+            title: "Profile not found",
+            description: "Could not find your patient profile",
+            variant: "destructive",
+          });
+        }
+      } catch (error: any) {
+        console.error("Error fetching patient info:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load your profile",
+          variant: "destructive",
+        });
+      }
+    };
+    
+    fetchPatientInfo();
+  }, [user, userType, toast]);
 
   // Fetch doctor info if user is a doctor
   useEffect(() => {
@@ -34,22 +93,39 @@ const MessagesPage = () => {
       if (!user || userType !== "doctor") return;
       
       try {
+        console.log("Fetching doctor info for user ID:", user.id);
+        
         const { data, error } = await supabase
           .from("doctors")
           .select("*")
           .eq("user_id", user.id)
-          .single();
+          .maybeSingle();
           
-        if (error) throw error;
+        if (error && !error.message.includes("No rows found")) throw error;
         
-        setCurrentDoctor(data);
+        if (data) {
+          console.log("Doctor found:", data);
+          setCurrentDoctor(data);
+        } else {
+          console.log("No doctor record found for this user");
+          toast({
+            title: "Profile not found",
+            description: "Could not find your doctor profile",
+            variant: "destructive",
+          });
+        }
       } catch (error: any) {
         console.error("Error fetching doctor info:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load your profile",
+          variant: "destructive",
+        });
       }
     };
     
     fetchDoctorInfo();
-  }, [user, userType]);
+  }, [user, userType, toast]);
   
   useEffect(() => {
     const fetchConversations = async () => {
@@ -57,10 +133,11 @@ const MessagesPage = () => {
         if (!user) return;
         
         setIsLoading(true);
+        console.log("Fetching conversations for user type:", userType);
         
         if (userType === "doctor" && currentDoctor) {
+          console.log("Fetching patients for doctor ID:", currentDoctor.id);
           // For doctors, fetch patients they have chatted with
-          // First get all patients assigned to this doctor
           const { data: patients, error: patientsError } = await supabase
             .from("patients")
             .select("*")
@@ -69,10 +146,13 @@ const MessagesPage = () => {
             
           if (patientsError) throw patientsError;
           
+          console.log("Patients found:", patients?.length || 0);
+          
           if (patients && patients.length > 0) {
             // For each patient, get their most recent message
             const conversationsWithLastMessage = await Promise.all(
               patients.map(async (patient) => {
+                console.log("Getting last message for patient:", patient.id);
                 const { data: lastMessage } = await supabase
                   .from("chats")
                   .select("*")
@@ -90,60 +170,76 @@ const MessagesPage = () => {
             );
             
             setConversations(conversationsWithLastMessage);
+            console.log("Conversations set for doctor:", conversationsWithLastMessage.length);
+          } else {
+            console.log("No patients found for this doctor");
+            setConversations([]);
           }
-        } else if (userType === "patient") {
-          // For patients, show doctors they can message
-          // This would need to be implemented based on your data model
-          // Placeholder for now - fetch the assigned doctor
-          const { data: patientData, error: patientError } = await supabase
-            .from("patients")
-            .select("doctor_id")
-            .eq("id", user.user_metadata?.patient_id)
-            .single();
-            
-          if (patientError && !patientError.message.includes("No rows found")) throw patientError;
-          
-          if (patientData?.doctor_id) {
+        } else if (userType === "patient" && patientInfo) {
+          console.log("Fetching doctor for patient ID:", patientInfo.id);
+          // For patients, fetch their assigned doctor
+          if (patientInfo.doctor_id) {
             const { data: doctorData, error: doctorError } = await supabase
               .from("doctors")
               .select("*")
-              .eq("id", patientData.doctor_id)
-              .single();
-              
-            if (doctorError) throw doctorError;
-            
-            const { data: lastMessage } = await supabase
-              .from("chats")
-              .select("*")
-              .eq("patient_id", user.user_metadata?.patient_id)
-              .order("created_at", { ascending: false })
-              .limit(1)
+              .eq("id", patientInfo.doctor_id)
               .maybeSingle();
+              
+            if (doctorError && !doctorError.message.includes("No rows found")) throw doctorError;
             
-            setConversations([
-              {
-                id: doctorData.id,
-                name: `Dr. ${doctorData.first_name} ${doctorData.last_name}`,
-                email: doctorData.email,
-                lastMessage: lastMessage?.message || "No messages",
-                lastMessageTime: lastMessage?.created_at || new Date().toISOString(),
-              },
-            ]);
+            if (doctorData) {
+              console.log("Doctor found:", doctorData);
+              const { data: lastMessage } = await supabase
+                .from("chats")
+                .select("*")
+                .eq("patient_id", patientInfo.id)
+                .order("created_at", { ascending: false })
+                .limit(1)
+                .maybeSingle();
+              
+              setConversations([
+                {
+                  id: doctorData.id,
+                  name: `Dr. ${doctorData.first_name} ${doctorData.last_name}`,
+                  email: doctorData.email,
+                  lastMessage: lastMessage?.message || "No messages",
+                  lastMessageTime: lastMessage?.created_at || new Date().toISOString(),
+                },
+              ]);
+              console.log("Doctor conversation set");
+            } else {
+              console.log("No doctor found for this patient");
+              setConversations([]);
+            }
+          } else {
+            console.log("Patient has no assigned doctor");
+            setConversations([]);
           }
+        } else {
+          console.log("No patient info or doctor info found");
+          setConversations([]);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error fetching conversations:", error);
         toast({
           title: "Error",
           description: "Failed to load conversations",
           variant: "destructive",
         });
+        setConversations([]);
       } finally {
         setIsLoading(false);
       }
     };
     
-    fetchConversations();
+    if ((userType === "doctor" && currentDoctor) || 
+        (userType === "patient" && patientInfo)) {
+      fetchConversations();
+    } else if (user && !isLoading && !currentDoctor && !patientInfo) {
+      // If we have a user but no doctor/patient info after loading
+      setIsLoading(false);
+      console.log("User found but no matching profile");
+    }
 
     // Set up real-time subscription for new messages
     let channel: any;
@@ -160,7 +256,7 @@ const MessagesPage = () => {
           }
         )
         .subscribe();
-    } else if (user && userType === "patient") {
+    } else if (user && userType === "patient" && patientInfo) {
       channel = supabase
         .channel('patient-chats')
         .on(
@@ -169,7 +265,7 @@ const MessagesPage = () => {
             event: 'INSERT', 
             schema: 'public', 
             table: 'chats',
-            filter: `patient_id=eq.${user.user_metadata?.patient_id}` 
+            filter: `patient_id=eq.${patientInfo.id}` 
           },
           (payload) => {
             // When a new message comes in, refresh conversations
@@ -184,10 +280,10 @@ const MessagesPage = () => {
         supabase.removeChannel(channel);
       }
     };
-  }, [user, userType, currentDoctor, toast]);
+  }, [user, userType, currentDoctor, patientInfo, toast]);
   
   const filteredConversations = conversations.filter(
-    conversation => conversation.name.toLowerCase().includes(searchTerm.toLowerCase())
+    conversation => conversation.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
   
   const handleConversationClick = (conversationId: string) => {
