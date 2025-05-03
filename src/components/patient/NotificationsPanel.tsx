@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from "react";
-import { Bell, Check, X } from "lucide-react";
+import { Bell, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -27,9 +27,20 @@ export const NotificationsPanel: React.FC = () => {
       if (!user) return;
 
       try {
+        // Get the patient id from the patients table
+        const { data: patientData, error: patientError } = await supabase
+          .from("patients")
+          .select("id")
+          .eq("email", user.email)
+          .single();
+          
+        if (patientError) throw patientError;
+        
+        // Fetch notifications for this patient
         const { data, error } = await supabase
           .from("notifications")
           .select("*")
+          .eq("patient_id", patientData.id)
           .order("created_at", { ascending: false });
 
         if (error) throw error;
@@ -64,6 +75,12 @@ export const NotificationsPanel: React.FC = () => {
           n.id === id ? { ...n, read: true } : n
         )
       );
+      
+      // Update global state - since we're in a sub-component, we'll use toast to signal the change
+      toast({
+        title: "Notification marked as read",
+        description: "The notification has been marked as read.",
+      });
     } catch (error: any) {
       console.error("Error marking notification as read:", error);
       toast({
@@ -87,7 +104,7 @@ export const NotificationsPanel: React.FC = () => {
     return (
       <div className="space-y-4">
         {[1, 2, 3].map((i) => (
-          <Card key={i} className="border-0 shadow-sm">
+          <Card key={i} className="border-0 shadow-subtle">
             <CardContent className="p-4">
               <div className="flex justify-between">
                 <Skeleton className="h-6 w-1/3" />
@@ -103,7 +120,7 @@ export const NotificationsPanel: React.FC = () => {
 
   if (notifications.length === 0) {
     return (
-      <Card className="border-0 shadow-sm">
+      <Card className="border-0 shadow-subtle">
         <CardContent className="p-6 text-center">
           <Bell className="h-10 w-10 text-gray-300 mx-auto mb-2" />
           <p className="text-gray-500">No notifications yet</p>
@@ -117,7 +134,7 @@ export const NotificationsPanel: React.FC = () => {
       {notifications.map((notification) => (
         <Card
           key={notification.id}
-          className={`border-0 shadow-sm transition-colors ${
+          className={`border-0 shadow-subtle transition-colors hover:-translate-y-0.5 hover:shadow-md ${
             notification.read ? "bg-gray-50" : "bg-white"
           }`}
         >
@@ -137,7 +154,7 @@ export const NotificationsPanel: React.FC = () => {
 
               {!notification.read && (
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
                   onClick={() => markAsRead(notification.id)}
                   className="h-8 w-8 p-0"

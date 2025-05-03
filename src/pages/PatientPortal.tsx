@@ -1,36 +1,79 @@
 
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Calendar, FileText, MessageSquare, ChevronRight, Hospital, User, Bell } from "lucide-react";
+import { Calendar, FileText, MessageSquare, ChevronRight, Download, Upload, Phone, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import NewSidebar from "@/components/NewSidebar";
 import { format, parseISO } from "date-fns";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { useIsMobile } from "@/hooks/use-mobile";
 import NotificationsPanel from "@/components/patient/NotificationsPanel";
+import PatientProfilePanel from "@/components/patient/PatientProfilePanel";
+import QuickActionsPanel from "@/components/patient/QuickActionsPanel";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 type CaseWithReport = {
   id: string;
   report_id: string;
   hospital_name: string | null;
   doctor_name: string;
+  title: string;
   date: string;
   status: string;
   scan_id: string;
   patient_id: string;
 };
 
+type Notification = {
+  id: string;
+  title: string;
+  message: string;
+  read: boolean;
+  created_at: string;
+};
+
 const PatientPortal = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   
   const [cases, setCases] = useState<CaseWithReport[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [patientName, setPatientName] = useState("");
   const [patientId, setPatientId] = useState<string | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [stats, setStats] = useState({
+    totalCases: 0,
+    unreadMessages: 0,
+    pendingForms: 0
+  });
+  
+  // Function to get friendly status badge color
+  const getStatusColor = (status: string) => {
+    switch(status) {
+      case 'draft': return 'bg-gray-100 text-gray-800';
+      case 'reviewing': return 'bg-blue-100 text-blue-800';
+      case 'published': return 'bg-teal-100 text-teal-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+  
+  // Function to get friendly status label
+  const getStatusLabel = (status: string) => {
+    switch(status) {
+      case 'draft': return 'Draft Report';
+      case 'reviewing': return 'Reviewing';
+      case 'published': return 'Published';
+      default: return status;
+    }
+  };
 
   useEffect(() => {
     const fetchPatientData = async () => {
@@ -64,53 +107,74 @@ const PatientPortal = () => {
             patient_id,
             hospital_name,
             status,
-            published_at
+            published_at,
+            created_at
           `)
           .eq("patient_id", patientData.id)
           .order("created_at", { ascending: false });
         
         if (reportError) throw reportError;
         
-        // For demo purposes, we'll create mock cases
-        const mockCases: CaseWithReport[] = reportData.map((report, index) => ({
-          id: `case-${index}`,
-          report_id: report.id,
-          hospital_name: report.hospital_name || "General Hospital",
-          doctor_name: "Dr. Sarah Johnson",
-          date: report.published_at || new Date().toISOString(),
-          status: report.status,
-          scan_id: report.scan_id,
-          patient_id: report.patient_id
-        }));
+        // Format the case data
+        const formattedCases: CaseWithReport[] = reportData.map((report) => {
+          const reportDate = report.published_at || report.created_at;
+          const title = `Radiology Report - ${format(parseISO(reportDate), "MMM d, yyyy")}`;
+          
+          return {
+            id: `case-${report.id}`,
+            report_id: report.id,
+            hospital_name: report.hospital_name || "General Hospital",
+            doctor_name: "Dr. Sarah Johnson",
+            title: title,
+            date: reportDate,
+            status: report.status,
+            scan_id: report.scan_id,
+            patient_id: report.patient_id
+          };
+        });
         
         // If no cases found in the database, create some mock data
-        if (mockCases.length === 0) {
-          const demoCase = {
+        if (formattedCases.length === 0) {
+          const today = new Date();
+          const mockCase = {
             id: "demo-case-1",
             report_id: "demo-report-1",
             hospital_name: "City Medical Center",
             doctor_name: "Dr. Sarah Johnson",
-            date: new Date().toISOString(),
+            title: `Chest X-Ray - ${format(today, "MMM d, yyyy")}`,
+            date: today.toISOString(),
             status: "published",
             scan_id: "demo-scan-1",
             patient_id: patientData.id
           };
           
-          mockCases.push(demoCase);
+          formattedCases.push(mockCase);
         }
         
-        setCases(mockCases);
+        setCases(formattedCases);
         
-        // Fetch unread notifications count
-        const { count, error: countError } = await supabase
+        // Fetch notifications
+        const { data: notificationsData, error: notificationsError } = await supabase
           .from("notifications")
-          .select("*", { count: "exact", head: true })
+          .select("*")
           .eq("patient_id", patientData.id)
-          .eq("read", false);
+          .order("created_at", { ascending: false });
           
-        if (countError) throw countError;
+        if (notificationsError) throw notificationsError;
         
-        setUnreadCount(count || 0);
+        setNotifications(notificationsData || []);
+        
+        // Calculate unread notifications count
+        const unreadNotifications = notificationsData?.filter(n => !n.read) || [];
+        setUnreadCount(unreadNotifications.length);
+        
+        // Set summary stats
+        setStats({
+          totalCases: formattedCases.length,
+          unreadMessages: 2, // Mock data for unread messages
+          pendingForms: unreadNotifications.filter(n => n.title.includes("consent") || n.message.includes("consent")).length
+        });
+        
       } catch (error: any) {
         toast({
           title: "Error fetching patient data",
@@ -130,150 +194,290 @@ const PatientPortal = () => {
       <NewSidebar type="patient">
         <div className="flex min-h-screen flex-col bg-gray-50">
           <div className="flex justify-center py-16">
-            <div className="animate-spin h-8 w-8 border-4 border-coral-500 border-t-transparent rounded-full"></div>
+            <div className="animate-spin h-8 w-8 border-4 border-teal-500 border-t-transparent rounded-full"></div>
           </div>
         </div>
       </NewSidebar>
     );
   }
 
+  // Determine if there's any urgent notification that should be shown as an alert
+  const urgentNotifications = notifications.filter(
+    (n) => !n.read && (n.title.includes("ready") || n.title.includes("consent") || n.message.includes("consent"))
+  );
+
   return (
     <NewSidebar type="patient">
       <div className="flex min-h-screen flex-col bg-gray-50">
         <div className="p-6 md:p-8">
-          <div className="mb-8">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold mb-2 text-gray-900">Patient Portal</h1>
-                <p className="text-gray-500">Welcome back, {patientName}</p>
-              </div>
-              
+          {/* Page header */}
+          <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between">
+            <div>
+              <h1 className="text-3xl font-bold mb-1 text-gray-900">
+                Welcome, <span className="border-b-2 border-teal-500 pb-1">{patientName}</span>
+              </h1>
+              <p className="text-gray-500">Track your radiology journey and healthcare records</p>
+            </div>
+            
+            {/* Action buttons */}
+            <div className="mt-4 md:mt-0 flex items-center gap-3">
               <Button
                 variant="outline"
+                size="sm"
                 className="relative"
-                onClick={() => setShowNotifications(!showNotifications)}
+                onClick={() => {
+                  setShowNotifications(!showNotifications);
+                  setShowProfile(false);
+                }}
               >
                 <Bell className="h-5 w-5" />
                 {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 bg-coral-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                     {unreadCount}
                   </span>
                 )}
               </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setShowProfile(!showProfile);
+                  setShowNotifications(false);
+                }}
+              >
+                {showProfile ? "Timeline" : "Profile"}
+              </Button>
             </div>
           </div>
           
-          {showNotifications ? (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-gray-800">Notifications</h2>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => setShowNotifications(false)}
-                >
-                  Back to Timeline
-                </Button>
-              </div>
-              
-              <NotificationsPanel />
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {/* Timeline title */}
-              <div>
-                <h2 className="text-xl font-semibold mb-2 text-gray-800">My Medical Timeline</h2>
-                <p className="text-muted-foreground">All your medical cases in one place</p>
-              </div>
-              
-              {/* Timeline */}
-              <div className="space-y-4">
-                {cases.length === 0 ? (
-                  <Card className="border-0 shadow-subtle">
-                    <CardContent className="text-center py-12">
-                      <p className="text-gray-500">No medical records found.</p>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  cases.map((caseItem) => (
-                    <Card 
-                      key={caseItem.id}
-                      className="border-0 overflow-hidden hover-card"
-                    >
-                      <div className={`h-1 w-full ${caseItem.status === "published" ? "bg-gradient-to-r from-teal-500 to-teal-400" : "bg-gradient-to-r from-blue-500 to-blue-400"}`}></div>
-                      <CardContent className="p-6">
-                        <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-                          <div>
-                            <div className="flex items-center mb-2">
-                              <FileText className="h-5 w-5 text-teal-500 mr-2" />
-                              <h3 className="text-lg font-medium">
-                                Radiology Report
-                              </h3>
-                            </div>
-                            
-                            <div className="flex flex-col md:flex-row gap-3 md:gap-5 text-sm text-gray-500 mb-4">
-                              <div className="flex items-center">
-                                <Hospital className="h-4 w-4 mr-1 text-gray-400" />
-                                {caseItem.hospital_name}
-                              </div>
-                              <div className="flex items-center">
-                                <User className="h-4 w-4 mr-1 text-gray-400" />
-                                {caseItem.doctor_name}
-                              </div>
-                              <div className="flex items-center">
-                                <Calendar className="h-4 w-4 mr-1 text-gray-400" />
-                                {format(parseISO(caseItem.date), "PPP")}
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="mt-4 md:mt-0 flex flex-wrap gap-3">
-                            {caseItem.status === "published" ? (
-                              <Button
-                                onClick={() => navigate(`/patient/reports/${caseItem.report_id}`)}
-                                className="bg-teal-500 hover:bg-teal-600 rounded-full"
-                              >
-                                <FileText className="mr-2 h-4 w-4" />
-                                View Report
-                              </Button>
-                            ) : (
-                              <Button variant="outline" disabled className="rounded-full">
-                                <FileText className="mr-2 h-4 w-4" />
-                                Report Pending
-                              </Button>
-                            )}
-                            
-                            <Button
-                              variant="outline"
-                              onClick={() => navigate(`/patient/chat`)}
-                              className="border-coral-200 text-coral-600 hover:bg-coral-50 hover:text-coral-700 hover:border-coral-300 rounded-full"
-                            >
-                              <MessageSquare className="mr-2 h-4 w-4" />
-                              Chat with Doctor
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
-                )}
-              </div>
-              
-              {/* Upcoming appointments card */}
+          {/* Summary cards at the top */}
+          {!showNotifications && !showProfile && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
               <Card className="border-0 shadow-subtle">
-                <CardHeader>
-                  <CardTitle className="text-xl">Upcoming Appointments</CardTitle>
-                </CardHeader>
-                <CardContent className="text-center text-gray-500 py-6">
-                  <p>No upcoming appointments</p>
-                  <Button 
-                    variant="outline" 
-                    className="mt-4 border-teal-200 text-teal-600 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-300 rounded-full"
-                  >
-                    Schedule Appointment
-                  </Button>
+                <CardContent className="p-6">
+                  <div className="flex flex-col">
+                    <span className="text-4xl font-bold text-gray-900">{stats.totalCases}</span>
+                    <span className="text-sm text-gray-500">Total Cases</span>
+                  </div>
                 </CardContent>
               </Card>
+              
+              <Card className="border-0 shadow-subtle">
+                <CardContent className="p-6">
+                  <div className="flex flex-col">
+                    <span className="text-4xl font-bold text-gray-900">{stats.unreadMessages}</span>
+                    <span className="text-sm text-gray-500">Unread Messages</span>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="border-0 shadow-subtle">
+                <CardContent className="p-6">
+                  <div className="flex flex-col">
+                    <span className="text-4xl font-bold text-gray-900">{stats.pendingForms}</span>
+                    <span className="text-sm text-gray-500">Pending Consent Forms</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+          
+          {/* Alert banners for urgent notifications */}
+          {!showNotifications && !showProfile && urgentNotifications.length > 0 && (
+            <div className="mb-8 space-y-4">
+              {urgentNotifications.map((notification) => (
+                <Alert key={notification.id} className="border-l-4 border-teal-500 bg-teal-50">
+                  <AlertTitle>{notification.title}</AlertTitle>
+                  <AlertDescription className="flex justify-between items-center">
+                    <span>{notification.message}</span>
+                    <Button 
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowNotifications(true)}
+                      className="text-teal-700 border-teal-300 hover:bg-teal-100"
+                    >
+                      Take Action
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              ))}
+            </div>
+          )}
+          
+          {/* Main content area */}
+          <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-4 gap-8'}`}>
+            {/* Timeline or notifications */}
+            <div className={`${isMobile ? 'col-span-1' : 'col-span-3'}`}>
+              {showNotifications ? (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-semibold text-gray-800">Notifications</h2>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => setShowNotifications(false)}
+                    >
+                      Back to Timeline
+                    </Button>
+                  </div>
+                  
+                  <NotificationsPanel />
+                </div>
+              ) : showProfile ? (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-semibold text-gray-800">Your Profile</h2>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => setShowProfile(false)}
+                    >
+                      Back to Timeline
+                    </Button>
+                  </div>
+                  
+                  <PatientProfilePanel />
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Timeline title */}
+                  <div>
+                    <h2 className="text-xl font-semibold mb-2 text-gray-800">Medical Timeline</h2>
+                    <p className="text-muted-foreground">Your case history in chronological order</p>
+                  </div>
+                  
+                  {/* Timeline */}
+                  <div className="relative space-y-6 before:absolute before:inset-0 before:left-9 before:h-full before:border-l-2 before:border-dashed before:border-gray-200 pl-12 md:pl-0 md:ml-9">
+                    {cases.length === 0 ? (
+                      <Card className="border-0 shadow-subtle">
+                        <CardContent className="text-center py-12">
+                          <p className="text-gray-500">No medical records found.</p>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      cases.map((caseItem, index) => (
+                        <div key={caseItem.id} className="relative">
+                          {/* Timeline dot */}
+                          <div className="absolute -left-9 top-6 h-5 w-5 rounded-full bg-white border-2 border-teal-500"></div>
+                          
+                          {/* Case card */}
+                          <Card 
+                            className="border-0 overflow-hidden hover-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+                          >
+                            <div className={`h-1 w-full ${caseItem.status === "published" 
+                              ? "bg-gradient-to-r from-teal-500 to-teal-400" 
+                              : "bg-gradient-to-r from-blue-500 to-blue-400"}`}
+                            ></div>
+                            <CardContent className="p-6">
+                              <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+                                <div>
+                                  <div className="flex items-center mb-2 gap-3">
+                                    <h3 className="text-lg font-medium">
+                                      {caseItem.title}
+                                    </h3>
+                                    <Badge className={getStatusColor(caseItem.status)}>
+                                      {getStatusLabel(caseItem.status)}
+                                    </Badge>
+                                  </div>
+                                  
+                                  <div className="flex flex-col md:flex-row gap-3 md:gap-5 text-sm text-gray-500 mb-4">
+                                    <div className="flex items-center">
+                                      <Calendar className="h-4 w-4 mr-1 text-gray-400" />
+                                      {format(parseISO(caseItem.date), "PPP")}
+                                    </div>
+                                    <div className="flex items-center">
+                                      {caseItem.hospital_name}
+                                    </div>
+                                    <div className="flex items-center">
+                                      {caseItem.doctor_name}
+                                    </div>
+                                  </div>
+                                </div>
+                                
+                                <div className="mt-4 md:mt-0 flex flex-wrap gap-3">
+                                  {caseItem.status === "published" ? (
+                                    <Button
+                                      onClick={() => navigate(`/patient/reports/${caseItem.report_id}`)}
+                                      className="bg-teal-500 hover:bg-teal-600 rounded-full group relative"
+                                    >
+                                      <FileText className="mr-2 h-4 w-4" />
+                                      View Report
+                                      
+                                      {/* Download icon on hover */}
+                                      <span className="absolute right-0 top-0 bottom-0 flex items-center pr-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Download className="h-4 w-4 ml-2" />
+                                      </span>
+                                    </Button>
+                                  ) : (
+                                    <Button variant="outline" disabled className="rounded-full">
+                                      <FileText className="mr-2 h-4 w-4" />
+                                      Report Pending
+                                    </Button>
+                                  )}
+                                  
+                                  <Button
+                                    variant="outline"
+                                    onClick={() => navigate(`/patient/chat`)}
+                                    className="border-coral-200 text-coral-600 hover:bg-coral-50 hover:text-coral-700 hover:border-coral-300 rounded-full"
+                                  >
+                                    <MessageSquare className="mr-2 h-4 w-4" />
+                                    Chat with Doctor
+                                  </Button>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {/* Sidebar / Quick actions */}
+            {!isMobile && !showNotifications && !showProfile && (
+              <div className="col-span-1">
+                <QuickActionsPanel />
+                
+                {/* Upcoming appointments card */}
+                <Card className="border-0 shadow-subtle mt-6">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Upcoming</CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-center text-gray-500 py-6">
+                    <p>No upcoming appointments</p>
+                    <Button 
+                      variant="outline" 
+                      className="mt-4 border-teal-200 text-teal-600 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-300 rounded-full"
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      Schedule Appointment
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </div>
+          
+          {/* Mobile Quick Actions (sticky footer) */}
+          {isMobile && !showNotifications && !showProfile && (
+            <div className="fixed bottom-0 left-0 right-0 bg-white border-t p-4 flex items-center justify-around z-10">
+              <Button variant="ghost" size="sm" className="flex-col gap-1">
+                <MessageSquare className="h-5 w-5" />
+                <span className="text-xs">Messages</span>
+              </Button>
+              
+              <Button variant="ghost" size="sm" className="flex-col gap-1">
+                <Phone className="h-5 w-5" />
+                <span className="text-xs">Follow-Up</span>
+              </Button>
+              
+              <Button variant="ghost" size="sm" className="flex-col gap-1">
+                <Upload className="h-5 w-5" />
+                <span className="text-xs">Upload</span>
+              </Button>
             </div>
           )}
         </div>
