@@ -1,9 +1,8 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import Index from "./pages/Index";
@@ -81,9 +80,19 @@ const App = () => (
             } />
             
             {/* Patient routes */}
+            <Route path="/patient/dashboard" element={
+              <ProtectedRoute userType="patient">
+                <Navigate to="/patient/portal" replace />
+              </ProtectedRoute>
+            } />
             <Route path="/patient/portal" element={
               <ProtectedRoute userType="patient">
                 <PatientPortal />
+              </ProtectedRoute>
+            } />
+            <Route path="/patient/chat" element={
+              <ProtectedRoute userType="patient">
+                <PatientChat />
               </ProtectedRoute>
             } />
             <Route path="/patient/reports/:reportId" element={
