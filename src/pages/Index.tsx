@@ -27,7 +27,7 @@ const Index = () => {
   const isMobile = useIsMobile();
 
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-br from-white to-brand-50">
+    <div className="flex min-h-screen flex-col bg-white">
       <NavBar />
       <main className="flex-grow">
         {/* Hero Section */}
@@ -46,26 +46,60 @@ const Index = () => {
             </Link>
           </div>
           
-          {/* Decorative background element */}
-          <div className="relative mt-16 overflow-hidden rounded-xl border border-brand-100 bg-white p-6 shadow-xl">
-            <div className="absolute -bottom-16 -right-16 h-52 w-52 rounded-full bg-brand-50 opacity-70"></div>
-            <div className="absolute -top-16 -left-16 h-52 w-52 rounded-full bg-brand-50 opacity-70"></div>
+          {/* Modern illustration */}
+          <div className="relative mt-16 overflow-hidden rounded-xl border border-brand-100 bg-white p-8 shadow-lg">
+            <div className="absolute -bottom-24 -right-24 h-64 w-64 rounded-full bg-gradient-to-tr from-brand-50 to-brand-100 opacity-70"></div>
+            <div className="absolute -top-24 -left-24 h-64 w-64 rounded-full bg-gradient-to-br from-brand-50 to-brand-100 opacity-70"></div>
             
-            <div className="relative mx-auto aspect-video max-w-4xl rounded-lg bg-gray-100">
-              <div className="absolute left-4 right-4 top-4 h-6 rounded bg-white"></div>
-              <div className="absolute bottom-4 left-4 top-14 w-48 rounded bg-white/90 shadow-sm"></div>
-              <div className="absolute bottom-4 left-56 right-4 top-14 rounded bg-white/90 shadow-sm"></div>
-              <div className="absolute bottom-12 left-64 right-12 top-20 rounded bg-brand-50/50"></div>
+            <div className="relative mx-auto max-w-4xl">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+                <div className="col-span-2 overflow-hidden rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 p-6 shadow-sm">
+                  <div className="mb-4 h-4 w-full rounded bg-gray-200"></div>
+                  <div className="mb-2 h-3 w-3/4 rounded bg-gray-200"></div>
+                  <div className="mb-4 h-3 w-1/2 rounded bg-gray-200"></div>
+                  
+                  <div className="flex gap-4">
+                    <div className="h-32 w-32 rounded-lg bg-brand-100"></div>
+                    <div className="h-32 w-32 rounded-lg bg-brand-100"></div>
+                    <div className="h-32 w-32 rounded-lg bg-brand-100"></div>
+                  </div>
+                  
+                  <div className="mt-4 h-24 rounded bg-white p-3">
+                    <div className="mb-2 h-3 w-3/4 rounded bg-gray-200"></div>
+                    <div className="h-3 w-1/2 rounded bg-gray-200"></div>
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="rounded-xl bg-white p-4 shadow-sm">
+                    <div className="mb-2 h-5 w-full rounded bg-brand-100"></div>
+                    <div className="h-3 w-3/4 rounded bg-gray-200"></div>
+                    <div className="mt-2 h-3 w-1/2 rounded bg-gray-200"></div>
+                  </div>
+                  
+                  <div className="rounded-xl bg-white p-4 shadow-sm">
+                    <div className="mb-2 h-5 w-full rounded bg-brand-100"></div>
+                    <div className="h-3 w-3/4 rounded bg-gray-200"></div>
+                    <div className="mt-2 h-3 w-1/2 rounded bg-gray-200"></div>
+                  </div>
+                  
+                  <div className="rounded-xl bg-white p-4 shadow-sm">
+                    <div className="mb-2 h-5 w-full rounded bg-brand-100"></div>
+                    <div className="h-3 w-3/4 rounded bg-gray-200"></div>
+                    <div className="mt-2 h-3 w-1/2 rounded bg-gray-200"></div>
+                  </div>
+                </div>
+              </div>
               
-              {/* Add a subtle animation */}
-              <div className="absolute bottom-16 left-72 h-12 w-12 animate-float rounded-full bg-brand-200/30"></div>
-              <div className="absolute right-20 top-24 h-8 w-8 animate-float rounded-full bg-brand-300/20" style={{ animationDelay: '2s' }}></div>
+              {/* Animated elements */}
+              <div className="absolute bottom-12 left-32 h-12 w-12 animate-float rounded-full bg-brand-200/30"></div>
+              <div className="absolute right-24 top-16 h-8 w-8 animate-float rounded-full bg-brand-300/20" style={{ animationDelay: '2s' }}></div>
             </div>
           </div>
         </HeroSection>
 
         {/* User Type CTAs */}
-        <section className="bg-white py-20">
+        <section className="py-20">
           <div className="container mx-auto px-4">
             <h2 className="mb-4 text-center text-3xl font-bold text-gray-900">
               Choose Your Path
@@ -154,7 +188,7 @@ const Index = () => {
         </section>
 
         {/* CTA Section */}
-        <section className="py-20 bg-gradient-to-r from-brand-500 to-brand-700 text-white">
+        <section className="py-20 bg-gradient-to-r from-brand-600 to-brand-800 text-white">
           <div className="container mx-auto px-4">
             <div className="mx-auto max-w-3xl text-center">
               <h2 className="mb-4 text-3xl font-bold">

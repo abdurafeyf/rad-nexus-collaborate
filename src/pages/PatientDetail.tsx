@@ -8,6 +8,7 @@ import {
   ChevronRight,
   MessageSquare,
   RefreshCw,
+  Upload,
   User,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -50,6 +51,17 @@ type XRay = {
   created_at: string;
 };
 
+// Report type definition
+type Report = {
+  id: string;
+  scan_id: string;
+  patient_id: string;
+  content: string;
+  status: "draft" | "published";
+  created_at: string;
+  published_at: string | null;
+};
+
 const PatientDetail = () => {
   const { patientId } = useParams<{ patientId: string }>();
   const { toast } = useToast();
@@ -57,6 +69,7 @@ const PatientDetail = () => {
   
   const [patient, setPatient] = useState<Patient | null>(null);
   const [xrays, setXrays] = useState<XRay[]>([]);
+  const [reports, setReports] = useState<Report[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isNotesDialogOpen, setIsNotesDialogOpen] = useState(false);
   const [updatedNotes, setUpdatedNotes] = useState("");
@@ -95,6 +108,20 @@ const PatientDetail = () => {
       }
 
       setXrays(xrayData as XRay[]);
+
+      // Fetch reports
+      const { data: reportData, error: reportError } = await supabase
+        .from("reports")
+        .select("*")
+        .eq("patient_id", patientId)
+        .order("created_at", { ascending: false });
+
+      if (reportError) {
+        throw reportError;
+      }
+
+      setReports(reportData as Report[]);
+      
     } catch (error: any) {
       toast({
         title: "Error fetching patient data",
@@ -225,6 +252,14 @@ const PatientDetail = () => {
                 <MessageSquare className="h-4 w-4" />
                 Chat
               </Button>
+              <Button
+                onClick={() => navigate(`/doctor/patients/${patientId}/scan/upload`)}
+                variant="default"
+                className="flex items-center gap-2"
+              >
+                <Upload className="h-4 w-4" />
+                Upload Scan
+              </Button>
             </div>
           </div>
 
@@ -302,8 +337,68 @@ const PatientDetail = () => {
               </Card>
             </div>
 
-            {/* Right column: X-rays and other data */}
+            {/* Right column: Reports and X-rays */}
             <div className="lg:col-span-2 space-y-6">
+              {/* Reports */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg font-medium">Radiology Reports</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {reports.length === 0 ? (
+                    <div className="py-8 text-center">
+                      <p className="text-muted-foreground">
+                        No radiology reports available for this patient.
+                      </p>
+                      <Button
+                        variant="outline"
+                        className="mt-4"
+                        onClick={() => navigate(`/doctor/patients/${patientId}/scan/upload`)}
+                      >
+                        Upload Scan & Generate Report
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {reports.map((report) => (
+                        <div
+                          key={report.id}
+                          className="flex items-center justify-between rounded-lg border p-4"
+                        >
+                          <div>
+                            <div className="font-medium">
+                              Report from {format(new Date(report.created_at), "PPP")}
+                            </div>
+                            <div className="flex items-center text-sm">
+                              <Badge 
+                                variant={report.status === "published" ? "default" : "outline"} 
+                                className="mr-2"
+                              >
+                                {report.status === "published" ? "Published" : "Draft"}
+                              </Badge>
+                              {report.published_at && (
+                                <span className="text-muted-foreground">
+                                  Published on {format(new Date(report.published_at), "PPP")}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => navigate(`/doctor/reports/${report.id}/review`)}
+                          >
+                            View
+                            <ChevronRight className="ml-1 h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* X-rays */}
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg font-medium">X-ray Records</CardTitle>
@@ -317,9 +412,9 @@ const PatientDetail = () => {
                       <Button
                         variant="outline"
                         className="mt-4"
-                        onClick={() => navigate("/doctor/dashboard")}
+                        onClick={() => navigate(`/doctor/patients/${patientId}/scan/upload`)}
                       >
-                        Add X-ray Record
+                        Upload New X-ray
                       </Button>
                     </div>
                   ) : (

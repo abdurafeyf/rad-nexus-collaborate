@@ -145,6 +145,92 @@ export type Database = {
         }
         Relationships: []
       }
+      reports: {
+        Row: {
+          content: string
+          created_at: string
+          hospital_name: string | null
+          id: string
+          patient_id: string
+          published_at: string | null
+          scan_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          hospital_name?: string | null
+          id?: string
+          patient_id: string
+          published_at?: string | null
+          scan_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          hospital_name?: string | null
+          id?: string
+          patient_id?: string
+          published_at?: string | null
+          scan_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reports_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reports_scan_id_fkey"
+            columns: ["scan_id"]
+            isOneToOne: false
+            referencedRelation: "scans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scans: {
+        Row: {
+          doctor_id: string
+          file_path: string
+          file_type: string
+          id: string
+          patient_id: string
+          uploaded_at: string
+        }
+        Insert: {
+          doctor_id: string
+          file_path: string
+          file_type: string
+          id?: string
+          patient_id: string
+          uploaded_at?: string
+        }
+        Update: {
+          doctor_id?: string
+          file_path?: string
+          file_type?: string
+          id?: string
+          patient_id?: string
+          uploaded_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scans_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       x_rays: {
         Row: {
           created_at: string

@@ -11,11 +11,13 @@ const NavBar: React.FC = () => {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <header className="w-full border-b border-gray-100">
+    <header className="w-full border-b border-gray-100 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
       <div className="container mx-auto flex items-center justify-between px-4 py-4">
         <Link to="/" className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-full bg-brand-700"></div>
-          <span className="text-xl font-semibold text-brand-900">RadNexus</span>
+          <div className="h-8 w-8 rounded-full bg-gradient-to-r from-brand-600 to-brand-400 flex items-center justify-center text-white font-bold text-sm">
+            R
+          </div>
+          <span className="text-xl font-semibold text-brand-900">RaDixpert</span>
         </Link>
 
         {isMobile ? (
@@ -53,11 +55,18 @@ const NavBar: React.FC = () => {
                     About
                   </Link>
                   <Link
-                    to="/login"
+                    to="/login/patient"
                     className="rounded bg-brand-50 px-3 py-2 text-sm font-medium text-brand-700 hover:bg-brand-100"
                     onClick={() => setMenuOpen(false)}
                   >
-                    Log In
+                    Patient Login
+                  </Link>
+                  <Link
+                    to="/login/doctor"
+                    className="rounded bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    Doctor Login
                   </Link>
                 </nav>
               </div>
@@ -83,9 +92,14 @@ const NavBar: React.FC = () => {
             >
               About
             </Link>
-            <Link to="/login">
-              <Button variant="outline" size="sm">
-                Log In
+            <Link to="/login/patient">
+              <Button variant="outline" size="sm" className="mr-2">
+                Patient Login
+              </Button>
+            </Link>
+            <Link to="/login/doctor">
+              <Button variant="default" size="sm">
+                Doctor Login
               </Button>
             </Link>
           </nav>
