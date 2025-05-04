@@ -24,7 +24,7 @@ type CaseWithReport = {
   title: string;
   date: string;
   status: string;
-  scan_id: string;
+  scan_record_id: string;
   patient_id: string;
 };
 
@@ -117,13 +117,13 @@ const PatientPortal = () => {
         .from("reports")
         .select(`
           id,
-          scan_id,
           patient_id,
+          scan_record_id,
           hospital_name,
           status,
           published_at,
           created_at,
-          scans (
+          scan_records:scan_record_id (
             doctor_id,
             doctors:doctor_id (
               first_name,
@@ -195,8 +195,8 @@ const PatientPortal = () => {
       
       // Get doctor name if available
       let doctorName = "Unknown Doctor";
-      if (report.scans && report.scans.doctors && typeof report.scans.doctors === 'object') {
-        const doctorData = report.scans.doctors as DoctorData;
+      if (report.scan_records && report.scan_records.doctors && typeof report.scan_records.doctors === 'object') {
+        const doctorData = report.scan_records.doctors as DoctorData;
         if (doctorData.first_name && doctorData.last_name) {
           doctorName = `Dr. ${doctorData.first_name} ${doctorData.last_name}`;
         }
@@ -210,7 +210,7 @@ const PatientPortal = () => {
         title: title,
         date: reportDate,
         status: report.status,
-        scan_id: report.scan_id,
+        scan_record_id: report.scan_record_id,
         patient_id: report.patient_id
       };
     });

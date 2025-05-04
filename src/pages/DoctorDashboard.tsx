@@ -162,14 +162,7 @@ const DoctorDashboard = () => {
 
       if (scanError) throw scanError;
 
-      const { data: scans, error: scansError } = await supabase
-        .from("scans")
-        .select("id")
-        .eq("patient_id", id);
-
-      if (scansError) throw scansError;
-
-      const hasScanRecords = (scanRecords?.length || 0) > 0 || (scans?.length || 0) > 0;
+      const hasScanRecords = (scanRecords?.length || 0) > 0;
 
       if (hasScanRecords) {
         // Show confirmation dialog
@@ -192,29 +185,13 @@ const DoctorDashboard = () => {
   const deletePatientRecord = async (id: string, deleteHistory: boolean = false) => {
     try {
       if (deleteHistory) {
-        // Delete scan records first
+        // Delete scan records
         const { error: scanError } = await supabase
           .from("scan_records")
           .delete()
           .eq("patient_id", id);
 
         if (scanError) throw scanError;
-
-        // Delete scans
-        const { error: scansError } = await supabase
-          .from("scans")
-          .delete()
-          .eq("patient_id", id);
-
-        if (scansError) throw scansError;
-
-        // Delete x-rays
-        const { error: xraysError } = await supabase
-          .from("x_rays")
-          .delete()
-          .eq("patient_id", id);
-
-        if (xraysError) throw xraysError;
       }
 
       // Finally delete the patient record
