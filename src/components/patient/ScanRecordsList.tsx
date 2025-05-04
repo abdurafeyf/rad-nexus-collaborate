@@ -107,13 +107,25 @@ export const ScanRecordsList: React.FC<ScanRecordsListProps> = ({ patientId, isD
         date_taken: xray.date,
         file_url: xray.file_path,
         notes: xray.notes,
-        visibility: (xray.visibility as "both" | "admin" | "patient") || "both",
+        // Cast visibility to the expected type with a default value if it doesn't match
+        visibility: (xray.visibility === "both" || xray.visibility === "admin" || xray.visibility === "patient") 
+          ? xray.visibility as "both" | "admin" | "patient" 
+          : "both" as const,
         created_at: xray.created_at,
       }));
 
+      // Apply the same normalization to scan_records to ensure consistent typing
+      const normalizedScanRecords = scanRecordsResult.data.map(record => ({
+        ...record,
+        // Cast visibility to the expected type with a default value if it doesn't match
+        visibility: (record.visibility === "both" || record.visibility === "admin" || record.visibility === "patient") 
+          ? record.visibility as "both" | "admin" | "patient" 
+          : "both" as const,
+      }));
+      
       // Combine records from both tables
-      const combinedRecords = [
-        ...(scanRecordsResult.data || []),
+      const combinedRecords: ScanRecord[] = [
+        ...normalizedScanRecords,
         ...normalizedXRays
       ].sort((a, b) => new Date(b.date_taken).getTime() - new Date(a.date_taken).getTime());
       
@@ -141,7 +153,11 @@ export const ScanRecordsList: React.FC<ScanRecordsListProps> = ({ patientId, isD
   };
 
   const handleSelectChange = (name: string, value: string) => {
-    setNewScan(prev => ({ ...prev, [name]: value }));
+    if (name === "visibility" && (value === "both" || value === "admin" || value === "patient")) {
+      setNewScan(prev => ({ ...prev, [name]: value as "both" | "admin" | "patient" }));
+    } else if (name === "scan_type") {
+      setNewScan(prev => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleDateChange = (date: Date | undefined) => {
@@ -501,7 +517,7 @@ export const ScanRecordsList: React.FC<ScanRecordsListProps> = ({ patientId, isD
                   <Label htmlFor="visibility">Visibility</Label>
                   <Select 
                     value={newScan.visibility || "both"} 
-                    onValueChange={(value: "both" | "admin" | "patient") => handleSelectChange("visibility", value)}
+                    onValueChange={(value) => handleSelectChange("visibility", value)}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select visibility" />
@@ -604,3 +620,4 @@ export const ScanRecordsList: React.FC<ScanRecordsListProps> = ({ patientId, isD
     </Card>
   );
 };
+
