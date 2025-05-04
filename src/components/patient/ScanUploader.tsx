@@ -32,6 +32,9 @@ const ScanUploader: React.FC<ScanUploaderProps> = ({ patientId, patientName, doc
   const { toast } = useToast();
   const navigate = useNavigate();
   
+  // Maximum retry attempts for handling transient errors
+  const MAX_RETRIES = 2;
+  
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files;
     if (!selectedFiles || selectedFiles.length === 0) return;
@@ -140,29 +143,63 @@ const ScanUploader: React.FC<ScanUploaderProps> = ({ patientId, patientName, doc
           throw new Error("Authentication required to generate reports.");
         }
         
-        const generateReportResponse = await fetch(`https://ruueewpswsmmagpsxbvk.supabase.co/functions/v1/generate-report`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`
-          },
-          body: JSON.stringify({
-            imageUrl: publicUrl,
-            patientName,
-            patientId,
-            scanType,
-            fileName: file.name
-          })
-        });
+        // Add retry functionality for report generation
+        let generateReportResponse = null;
+        let reportData = null;
+        let attempts = 0;
         
-        if (!generateReportResponse.ok) {
-          const errorData = await generateReportResponse.json();
-          const errorMessage = errorData.error || 'Unknown error occurred';
-          console.error('Report generation error:', errorData);
-          throw new Error(`Report generation failed: ${errorMessage}`);
+        while (attempts <= MAX_RETRIES) {
+          try {
+            // Add cache-busting parameter to URL
+            const cacheBuster = `?t=${Date.now()}`;
+            const imageUrlWithCacheBuster = `${publicUrl}${cacheBuster}`;
+            
+            generateReportResponse = await fetch(`https://ruueewpswsmmagpsxbvk.supabase.co/functions/v1/generate-report`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`
+              },
+              body: JSON.stringify({
+                imageUrl: imageUrlWithCacheBuster,
+                patientName,
+                patientId,
+                scanType,
+                fileName: file.name
+              })
+            });
+            
+            if (!generateReportResponse.ok) {
+              const errorData = await generateReportResponse.json();
+              const errorMessage = errorData.error || 'Unknown error occurred';
+              
+              // If this is our last retry attempt, throw the error
+              if (attempts === MAX_RETRIES) {
+                throw new Error(`Report generation failed: ${errorMessage}`);
+              }
+              
+              console.error(`Attempt ${attempts + 1} failed: ${errorMessage}`);
+              attempts++;
+              // Wait before retrying (exponential backoff)
+              await new Promise(resolve => setTimeout(resolve, 1000 * (2 ** attempts)));
+              continue;
+            }
+            
+            // Success case
+            reportData = await generateReportResponse.json();
+            break;
+          } catch (error: any) {
+            // If this is our last retry attempt, throw the error
+            if (attempts === MAX_RETRIES) {
+              throw error;
+            }
+            
+            console.error(`Attempt ${attempts + 1} failed: ${error.message}`);
+            attempts++;
+            // Wait before retrying (exponential backoff)
+            await new Promise(resolve => setTimeout(resolve, 1000 * (2 ** attempts)));
+          }
         }
-        
-        const reportData = await generateReportResponse.json();
         
         if (!reportData || !reportData.report) {
           throw new Error("Invalid report data received from API");
