@@ -113,3 +113,25 @@ export const hasAnyDoctors = async (): Promise<boolean> => {
     return false;
   }
 };
+
+// Helper function to delete a patient and all associated records
+export const deletePatient = async (patientId: string): Promise<{ success: boolean; error?: string }> => {
+  try {
+    // With our new cascading constraints, we can simply delete the patient
+    // and all related records will be automatically deleted
+    const { error } = await supabase
+      .from("patients")
+      .delete()
+      .eq("id", patientId);
+
+    if (error) {
+      console.error("Error deleting patient:", error);
+      return { success: false, error: error.message };
+    }
+    
+    return { success: true };
+  } catch (e: any) {
+    console.error("Exception deleting patient:", e);
+    return { success: false, error: e.message };
+  }
+};

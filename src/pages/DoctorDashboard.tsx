@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
@@ -11,9 +12,8 @@ import {
   X,
   ToggleRight,
   ToggleLeft,
-  User
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, deletePatient } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -90,7 +90,6 @@ const DoctorDashboard = () => {
   const [hoveredRow, setHoveredRow] = useState<string | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [patientToDelete, setPatientToDelete] = useState<string | null>(null);
-  const [deleteWithHistory, setDeleteWithHistory] = useState(false);
 
   // First fetch the current doctor's info
   useEffect(() => {
@@ -123,129 +122,40 @@ const DoctorDashboard = () => {
   // Fetch patients data once we have the doctor's ID
   useEffect(() => {
     if (!currentDoctor) return;
-    
-    const fetchPatients = async () => {
-      setIsLoading(true);
-      try {
-        const { data, error } = await supabase
-          .from("patients")
-          .select("*")
-          .eq("doctor_id", currentDoctor.id);
-
-        if (error) {
-          throw error;
-        }
-
-        setPatients(data as Patient[]);
-      } catch (error: any) {
-        toast({
-          title: "Error fetching patients",
-          description: error.message,
-          variant: "destructive",
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchPatients();
   }, [currentDoctor]);
 
   // Handle patient deletion
   const handleDeletePatient = async (id: string) => {
-    try {
-      // Check if patient has any scan records
-      const { data: scanRecords, error: scanError } = await supabase
-        .from("scan_records")
-        .select("id")
-        .eq("patient_id", id);
-
-      if (scanError) throw scanError;
-
-      const hasScanRecords = (scanRecords?.length || 0) > 0;
-
-      if (hasScanRecords) {
-        // Show confirmation dialog
-        setPatientToDelete(id);
-        setShowDeleteDialog(true);
-        return;
-      }
-
-      // If no scan records, proceed with simple deletion
-      await deletePatientRecord(id);
-    } catch (error: any) {
-      toast({
-        title: "Error checking patient records",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
+    setPatientToDelete(id);
+    setShowDeleteDialog(true);
   };
 
-  const deletePatientRecord = async (id: string, deleteHistory: boolean = false) => {
+  const confirmDeletePatient = async () => {
+    if (!patientToDelete) return;
+    
     try {
-      if (deleteHistory) {
-        // Step 1: Delete reports first (they reference scan_records)
-        const { error: reportError } = await supabase
-          .from("reports")
-          .delete()
-          .eq("patient_id", id);
-
-        if (reportError) throw reportError;
-        
-        // Step 2: Delete scan records
-        const { error: scanError } = await supabase
-          .from("scan_records")
-          .delete()
-          .eq("patient_id", id);
-
-        if (scanError) throw scanError;
-      } else {
-        // If we're not deleting history, we need to handle potential foreign key constraints
-        // First, get all scan record IDs for this patient
-        const { data: scanRecords, error: scanQueryError } = await supabase
-          .from("scan_records")
-          .select("id")
-          .eq("patient_id", id);
-          
-        if (scanQueryError) throw scanQueryError;
-        
-        // If there are scan records with reports, set the reports' scan_record_id to null
-        if (scanRecords && scanRecords.length > 0) {
-          const scanIds = scanRecords.map(sr => sr.id);
-          
-          // Update reports to remove references to scan records
-          const { error: reportsUpdateError } = await supabase
-            .from("reports")
-            .update({ scan_record_id: null })
-            .in("scan_record_id", scanIds);
-            
-          if (reportsUpdateError) throw reportsUpdateError;
-        }
-      }
-
-      // Finally delete the patient record
-      const { error } = await supabase
-        .from("patients")
-        .delete()
-        .eq("id", id);
-
-      if (error) throw error;
-
-      setPatients((prev) => prev.filter((patient) => patient.id !== id));
+      const { success, error } = await deletePatient(patientToDelete);
       
-      toast({
-        title: "Patient deleted",
-        description: deleteHistory 
-          ? "Patient and all associated records have been deleted."
-          : "Patient has been deleted. Scan records have been preserved.",
-      });
+      if (success) {
+        setPatients((prev) => prev.filter((patient) => patient.id !== patientToDelete));
+        
+        toast({
+          title: "Success",
+          description: "Patient and all associated records have been deleted.",
+        });
+      } else {
+        throw new Error(error);
+      }
     } catch (error: any) {
       toast({
         title: "Error deleting patient",
         description: error.message,
         variant: "destructive",
       });
+    } finally {
+      setShowDeleteDialog(false);
+      setPatientToDelete(null);
     }
   };
 
@@ -545,25 +455,15 @@ const DoctorDashboard = () => {
                                 )}
                               </Button>
                               
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 text-gray-500 hover:text-red-600"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem
-                                    className="text-red-600 cursor-pointer"
-                                    onClick={() => handleDeletePatient(patient.id)}
-                                  >
-                                    Confirm Delete
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-gray-500 hover:text-red-600"
+                                onClick={() => handleDeletePatient(patient.id)}
+                                title="Delete patient"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -582,58 +482,22 @@ const DoctorDashboard = () => {
             <DialogHeader>
               <DialogTitle>Delete Patient</DialogTitle>
               <DialogDescription>
-                This patient has scan records associated with their account. Would you like to:
+                Are you sure you want to delete this patient? This will permanently remove the patient and all associated records.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="flex items-center space-x-2">
-                <input
-                  type="radio"
-                  id="keepHistory"
-                  name="deleteOption"
-                  checked={!deleteWithHistory}
-                  onChange={() => setDeleteWithHistory(false)}
-                  className="h-4 w-4 text-teal-600"
-                />
-                <label htmlFor="keepHistory" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                  Delete patient only (keep scan records)
-                </label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="radio"
-                  id="deleteHistory"
-                  name="deleteOption"
-                  checked={deleteWithHistory}
-                  onChange={() => setDeleteWithHistory(true)}
-                  className="h-4 w-4 text-teal-600"
-                />
-                <label htmlFor="deleteHistory" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                  Delete patient and all scan records
-                </label>
-              </div>
-            </div>
             <DialogFooter>
               <Button
                 variant="outline"
                 onClick={() => {
                   setShowDeleteDialog(false);
                   setPatientToDelete(null);
-                  setDeleteWithHistory(false);
                 }}
               >
                 Cancel
               </Button>
               <Button
                 variant="destructive"
-                onClick={() => {
-                  if (patientToDelete) {
-                    deletePatientRecord(patientToDelete, deleteWithHistory);
-                  }
-                  setShowDeleteDialog(false);
-                  setPatientToDelete(null);
-                  setDeleteWithHistory(false);
-                }}
+                onClick={confirmDeletePatient}
               >
                 Delete
               </Button>
