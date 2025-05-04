@@ -18,6 +18,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import NewSidebar from "@/components/NewSidebar";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 const ACCEPTED_FILE_TYPES = {
   'image/jpeg': ['.jpg', '.jpeg'],
@@ -54,23 +56,34 @@ const ScanUpload = () => {
   const [hospitalName, setHospitalName] = useState<string>("");
   const [scanType, setScanType] = useState<string>("");
   const [otherScanType, setOtherScanType] = useState<string>("");
+  const [error, setError] = useState<string | null>(null);
 
   // Fetch patient details
   React.useEffect(() => {
     const fetchPatientDetails = async () => {
       try {
-        if (!patientId) return;
+        if (!patientId) {
+          setError("Patient ID is missing. Please select a patient first.");
+          return;
+        }
         
         const { data, error } = await supabase
           .from("patients")
           .select("id, name, email")
           .eq("id", patientId)
-          .single();
+          .maybeSingle();
         
         if (error) throw error;
         
+        if (!data) {
+          setError("Patient not found. The patient might have been deleted.");
+          return;
+        }
+        
         setPatientDetails(data as PatientDetails);
+        setError(null); // Clear any previous errors
       } catch (error: any) {
+        setError(`Error fetching patient details: ${error.message}`);
         toast({
           title: "Error fetching patient details",
           description: error.message,
@@ -80,7 +93,7 @@ const ScanUpload = () => {
     };
     
     fetchPatientDetails();
-  }, [patientId]);
+  }, [patientId, toast]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -125,12 +138,37 @@ const ScanUpload = () => {
       return;
     }
     
+    if (!patientDetails) {
+      toast({
+        title: "Patient not found",
+        description: "Cannot upload scan for a non-existent patient.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsLoading(true);
     
     try {
       // 1. Upload file to storage
       const fileExt = file.name.split('.').pop();
       const fileName = `${patientId}/${Date.now()}.${fileExt}`;
+      
+      // Attempt to create storage bucket if it doesn't exist
+      try {
+        const { data: bucketData, error: bucketError } = await supabase.storage
+          .getBucket("scans");
+        
+        if (bucketError && bucketError.message.includes("The resource was not found")) {
+          await supabase.storage.createBucket("scans", {
+            public: false,
+            fileSizeLimit: 50 * 1024 * 1024, // 50MB limit
+          });
+        }
+      } catch (error) {
+        console.error("Error checking or creating storage bucket:", error);
+        // Continue with upload attempt
+      }
       
       const { data: fileData, error: fileError } = await supabase.storage
         .from("scans")
@@ -142,13 +180,43 @@ const ScanUpload = () => {
       
       // Get the doctor ID from session
       const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user.id;
+      
+      if (!userId) {
+        throw new Error("You must be logged in to upload scans.");
+      }
+      
       const { data: doctorData, error: doctorError } = await supabase
         .from("doctors")
         .select("id")
-        .eq("user_id", session?.user.id || '')
+        .eq("user_id", userId)
         .single();
         
-      if (doctorError) throw doctorError;
+      if (doctorError) {
+        // Try to create a doctor record if one doesn't exist
+        const { data: userData } = await supabase.auth.getUser();
+        const email = userData.user?.email;
+        
+        if (!email) throw new Error("Unable to retrieve user email.");
+        
+        const { data: newDoctorData, error: newDoctorError } = await supabase
+          .from("doctors")
+          .insert({
+            user_id: userId,
+            email: email,
+            first_name: "Doctor",
+            last_name: "User",
+            organization_id: "00000000-0000-0000-0000-000000000000" // Placeholder ID
+          })
+          .select()
+          .single();
+          
+        if (newDoctorError) throw new Error("Failed to create doctor record: " + newDoctorError.message);
+        
+        var doctorId = newDoctorData.id;
+      } else {
+        var doctorId = doctorData.id;
+      }
       
       const finalScanType = scanType === "other" ? otherScanType : 
         SCAN_TYPES.find(s => s.value === scanType)?.label || scanType;
@@ -161,14 +229,28 @@ const ScanUpload = () => {
             patient_id: patientId,
             file_path: filePath,
             file_type: file.type,
-            doctor_id: doctorData.id,
-            scan_type: finalScanType
+            doctor_id: doctorId
           }
         ])
         .select()
         .single();
       
       if (scanError) throw scanError;
+
+      // Also add to scan_records for compatibility
+      await supabase
+        .from("scan_records")
+        .insert([
+          {
+            patient_id: patientId,
+            date_taken: new Date().toISOString().split('T')[0],
+            scan_type: finalScanType,
+            file_url: filePath,
+            visibility: "both",
+            uploaded_by: userId,
+            notes: `Scan uploaded via ScanUpload page`
+          }
+        ]);
 
       // 3. Generate AI report (in real app, call OpenAI API here)
       // For now, we'll create a placeholder report
@@ -179,13 +261,26 @@ const ScanUpload = () => {
             scan_id: scanData.id,
             patient_id: patientId,
             content: `# Radiology Report\n\n## Patient Information\nPatient ID: ${patientId}\n\n## Scan Type\n${finalScanType}\n\n## Analysis\nThis is a placeholder for an AI-generated report. In a production environment, this would be generated by analyzing the uploaded scan using OpenAI's Vision API.\n\n## Findings\nNo findings available in this demo version.\n\n## Impression\nDemo impression text.`,
-            hospital_name: hospitalName || "Main Hospital"
+            hospital_name: hospitalName || "Main Hospital",
+            status: "draft"
           }
         ])
         .select()
         .single();
       
       if (reportError) throw reportError;
+      
+      // Create a notification for the patient
+      await supabase
+        .from("notifications")
+        .insert([
+          {
+            patient_id: patientId,
+            title: "New Scan Uploaded",
+            message: `A new ${finalScanType} scan has been uploaded to your records. A report will be available soon.`,
+            read: false
+          }
+        ]);
       
       toast({
         title: "Upload successful",
@@ -205,6 +300,49 @@ const ScanUpload = () => {
       setIsLoading(false);
     }
   };
+
+  // If there's an error, show an error state
+  if (error) {
+    return (
+      <NewSidebar type="doctor">
+        <div className="flex min-h-screen flex-col bg-gray-50">
+          <main className="flex-grow container mx-auto py-8 px-4">
+            <Button
+              variant="ghost"
+              onClick={() => navigate(`/doctor/dashboard`)}
+              className="mb-6 -ml-3"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Dashboard
+            </Button>
+            
+            <Alert variant="destructive" className="mb-8">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>
+                {error}
+              </AlertDescription>
+            </Alert>
+            
+            <div className="flex justify-center mt-8">
+              <Button 
+                onClick={() => navigate('/doctor/add-patient')} 
+                className="mr-4"
+              >
+                Add New Patient
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => navigate('/doctor/dashboard')}
+              >
+                Return to Dashboard
+              </Button>
+            </div>
+          </main>
+        </div>
+      </NewSidebar>
+    );
+  }
 
   return (
     <NewSidebar type="doctor">

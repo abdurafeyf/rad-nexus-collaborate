@@ -39,3 +39,77 @@ export const isAuthenticated = async () => {
     return false;
   }
 };
+
+// Helper function to get the current user's ID
+export const getCurrentUserId = async (): Promise<string | null> => {
+  try {
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data.user) {
+      console.error("Error getting current user:", error);
+      return null;
+    }
+    return data.user.id;
+  } catch (e) {
+    console.error("Exception getting current user:", e);
+    return null;
+  }
+};
+
+// Helper function to get doctor ID from user ID
+export const getDoctorIdFromUserId = async (userId: string): Promise<string | null> => {
+  try {
+    const { data, error } = await supabase
+      .from("doctors")
+      .select("id")
+      .eq("user_id", userId)
+      .maybeSingle();
+    
+    if (error) {
+      console.error("Error getting doctor ID:", error);
+      return null;
+    }
+    
+    return data?.id || null;
+  } catch (e) {
+    console.error("Exception getting doctor ID:", e);
+    return null;
+  }
+};
+
+// Helper function to check if there are any organizations
+export const hasAnyOrganizations = async (): Promise<boolean> => {
+  try {
+    const { count, error } = await supabase
+      .from("organizations")
+      .select("*", { count: 'exact', head: true });
+    
+    if (error) {
+      console.error("Error checking organizations:", error);
+      return false;
+    }
+    
+    return (count || 0) > 0;
+  } catch (e) {
+    console.error("Exception checking organizations:", e);
+    return false;
+  }
+};
+
+// Helper function to check if there are any doctors
+export const hasAnyDoctors = async (): Promise<boolean> => {
+  try {
+    const { count, error } = await supabase
+      .from("doctors")
+      .select("*", { count: 'exact', head: true });
+    
+    if (error) {
+      console.error("Error checking doctors:", error);
+      return false;
+    }
+    
+    return (count || 0) > 0;
+  } catch (e) {
+    console.error("Exception checking doctors:", e);
+    return false;
+  }
+};

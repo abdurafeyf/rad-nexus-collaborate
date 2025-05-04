@@ -73,7 +73,8 @@ export const createPatient = async (params: CreatePatientParams): Promise<Patien
           .insert({
             patient_id: patientId,
             date: xray.date.toISOString().split("T")[0],
-            scan_type: xray.scanType
+            scan_type: xray.scanType,
+            visibility: "both" // Set explicit visibility value
           })
           .select();
 
@@ -83,6 +84,22 @@ export const createPatient = async (params: CreatePatientParams): Promise<Patien
         }
         
         console.log("X-ray record created:", xrayData);
+        
+        // Create a corresponding scan record for better compatibility with new schema
+        const { error: scanRecordError } = await supabase
+          .from("scan_records")
+          .insert({
+            patient_id: patientId,
+            date_taken: xray.date.toISOString().split("T")[0],
+            scan_type: xray.scanType,
+            visibility: "both",
+            notes: `Scan record for ${xray.scanType}`
+          });
+          
+        if (scanRecordError) {
+          console.error("Error creating scan record:", scanRecordError);
+          // Continue execution - this is a supplementary record
+        }
         
         // Create a corresponding report entry for each X-ray
         if (xrayData && xrayData.length > 0) {
