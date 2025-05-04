@@ -7,7 +7,50 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Hardcoded API key instead of environment variable
 const OPENAI_API_KEY = "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";
+
+// Function to validate and fetch the image with timeout
+async function validateAndFetchImage(imageUrl) {
+  try {
+    // Add cache busting parameter to avoid potential caching issues
+    const urlWithNoCaching = `${imageUrl}?t=${Date.now()}`;
+    console.log(`Attempting to fetch image from: ${urlWithNoCaching}`);
+    
+    // Create a timeout promise
+    const timeout = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error("Image download timed out after 10 seconds")), 10000)
+    );
+    
+    // Create fetch promise
+    const fetchPromise = fetch(urlWithNoCaching, {
+      method: 'GET',
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+      }
+    });
+    
+    // Race the fetch against the timeout
+    const response = await Promise.race([fetchPromise, timeout]);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+    }
+    
+    // Check content type to verify it's an image
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.startsWith('image/')) {
+      throw new Error(`URL does not point to a valid image. Content-Type: ${contentType}`);
+    }
+    
+    console.log("Image fetched successfully");
+    return urlWithNoCaching;
+  } catch (error) {
+    console.error(`Error validating image: ${error.message}`);
+    throw new Error(`Image validation failed: ${error.message}`);
+  }
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -16,12 +59,6 @@ serve(async (req) => {
   }
 
   try {
-    // Use the hardcoded API key instead of getting from environment variable
-    if (!OPENAI_API_KEY) {
-      console.error("Missing OpenAI API key");
-      throw new Error("Missing OpenAI API key.");
-    }
-    
     // Get request body
     const requestBody = await req.json().catch(error => {
       console.error("Error parsing request body:", error);
@@ -36,6 +73,9 @@ serve(async (req) => {
       console.error("Missing image URL");
       throw new Error("Image URL is required.");
     }
+    
+    // Validate and fetch the image with timeout protection
+    const validatedImageUrl = await validateAndFetchImage(imageUrl);
     
     // Create the prompt for the OpenAI API
     const prompt = `
@@ -62,7 +102,7 @@ serve(async (req) => {
     
     console.log("Calling OpenAI API...");
     
-    // Call the OpenAI Vision API
+    // Call the OpenAI Vision API with the validated image URL
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -78,7 +118,7 @@ serve(async (req) => {
               { type: 'text', text: prompt },
               { 
                 type: 'image_url', 
-                image_url: { url: imageUrl }
+                image_url: { url: validatedImageUrl }
               }
             ]
           }
