@@ -82,40 +82,17 @@ export const ScanRecordsList: React.FC<ScanRecordsListProps> = ({ patientId, isD
     try {
       setIsLoading(true);
 
-      // Fetch records from both scan_records and x_rays tables
-      const [scanRecordsResult, xRaysResult] = await Promise.all([
-        supabase
-          .from("scan_records")
-          .select("*")
-          .eq("patient_id", patientId)
-          .order("date_taken", { ascending: false }),
-        supabase
-          .from("x_rays")
-          .select("id, patient_id, scan_type, date, file_path, notes, visibility, created_at")
-          .eq("patient_id", patientId)
-          .order("date", { ascending: false })
-      ]);
+      // Fetch records from scan_records table only
+      const { data: scanRecordsData, error: scanRecordsError } = await supabase
+        .from("scan_records")
+        .select("*")
+        .eq("patient_id", patientId)
+        .order("date_taken", { ascending: false });
 
-      if (scanRecordsResult.error) throw scanRecordsResult.error;
-      if (xRaysResult.error) throw xRaysResult.error;
+      if (scanRecordsError) throw scanRecordsError;
 
-      // Convert x_rays to match the scan_records format
-      const normalizedXRays = xRaysResult.data.map(xray => ({
-        id: xray.id,
-        patient_id: xray.patient_id,
-        scan_type: xray.scan_type || "X-Ray",
-        date_taken: xray.date,
-        file_url: xray.file_path,
-        notes: xray.notes,
-        // Cast visibility to the expected type with a default value if it doesn't match
-        visibility: (xray.visibility === "both" || xray.visibility === "admin" || xray.visibility === "patient") 
-          ? xray.visibility as "both" | "admin" | "patient" 
-          : "both" as const,
-        created_at: xray.created_at,
-      }));
-
-      // Apply the same normalization to scan_records to ensure consistent typing
-      const normalizedScanRecords = scanRecordsResult.data.map(record => ({
+      // Normalize data to ensure consistent typing
+      const normalizedRecords = scanRecordsData.map(record => ({
         ...record,
         // Cast visibility to the expected type with a default value if it doesn't match
         visibility: (record.visibility === "both" || record.visibility === "admin" || record.visibility === "patient") 
@@ -123,13 +100,7 @@ export const ScanRecordsList: React.FC<ScanRecordsListProps> = ({ patientId, isD
           : "both" as const,
       }));
       
-      // Combine records from both tables
-      const combinedRecords: ScanRecord[] = [
-        ...normalizedScanRecords,
-        ...normalizedXRays
-      ].sort((a, b) => new Date(b.date_taken).getTime() - new Date(a.date_taken).getTime());
-      
-      setRecords(combinedRecords);
+      setRecords(normalizedRecords);
     } catch (error: any) {
       console.error("Error fetching scan records:", error);
       toast({
@@ -264,7 +235,7 @@ export const ScanRecordsList: React.FC<ScanRecordsListProps> = ({ patientId, isD
 
   const handleDeleteScan = async (id: string) => {
     try {
-      // First check if this is in scan_records or x_rays
+      // Get the scan record to check for file URL
       const { data: scanRecord } = await supabase
         .from("scan_records")
         .select("id, file_url")
@@ -274,8 +245,11 @@ export const ScanRecordsList: React.FC<ScanRecordsListProps> = ({ patientId, isD
       if (scanRecord) {
         // Delete file if exists
         if (scanRecord.file_url) {
-          const filePath = scanRecord.file_url.split("/").slice(-2).join("/");
-          await supabase.storage.from("scans").remove([filePath]);
+          // Extract file path from the URL
+          const filePathMatch = scanRecord.file_url.match(/\/storage\/v1\/object\/public\/scans\/(.+)/);
+          if (filePathMatch && filePathMatch[1]) {
+            await supabase.storage.from("scans").remove([filePathMatch[1]]);
+          }
         }
         
         // Delete record
@@ -285,40 +259,17 @@ export const ScanRecordsList: React.FC<ScanRecordsListProps> = ({ patientId, isD
           .eq("id", id);
           
         if (error) throw error;
+        
+        // Remove from local state
+        setRecords(records.filter(record => record.id !== id));
+        
+        toast({
+          title: "Success",
+          description: "Scan record deleted successfully"
+        });
       } else {
-        // Try x_rays table
-        const { data: xRay } = await supabase
-          .from("x_rays")
-          .select("id, file_path")
-          .eq("id", id)
-          .maybeSingle();
-          
-        if (xRay) {
-          // Delete file if exists
-          if (xRay.file_path) {
-            const filePath = xRay.file_path.split("/").slice(-2).join("/");
-            await supabase.storage.from("scans").remove([filePath]);
-          }
-          
-          // Delete record
-          const { error } = await supabase
-            .from("x_rays")
-            .delete()
-            .eq("id", id);
-            
-          if (error) throw error;
-        } else {
-          throw new Error("Record not found");
-        }
+        throw new Error("Record not found");
       }
-      
-      // Remove from local state
-      setRecords(records.filter(record => record.id !== id));
-      
-      toast({
-        title: "Success",
-        description: "Scan record deleted successfully"
-      });
     } catch (error: any) {
       console.error("Error deleting scan record:", error);
       toast({
@@ -620,4 +571,3 @@ export const ScanRecordsList: React.FC<ScanRecordsListProps> = ({ patientId, isD
     </Card>
   );
 };
-
