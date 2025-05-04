@@ -17,13 +17,22 @@ serve(async (req) => {
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     
     if (!openAIApiKey) {
+      console.error("Missing OpenAI API key");
       throw new Error("Missing OpenAI API key. Please set the OPENAI_API_KEY environment variable.");
     }
     
     // Get request body
-    const { imageUrl, patientName, patientId, scanType, fileName } = await req.json();
+    const requestBody = await req.json().catch(error => {
+      console.error("Error parsing request body:", error);
+      throw new Error("Invalid request format. Please check your request body.");
+    });
+    
+    const { imageUrl, patientName, patientId, scanType, fileName } = requestBody;
+    
+    console.log("Processing request with:", { patientId, fileName, scanType });
     
     if (!imageUrl) {
+      console.error("Missing image URL");
       throw new Error("Image URL is required.");
     }
     
@@ -50,6 +59,8 @@ serve(async (req) => {
       [Provide a professional assessment and diagnosis based on the findings]
     `;
     
+    console.log("Calling OpenAI API...");
+    
     // Call the OpenAI Vision API
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -75,12 +86,20 @@ serve(async (req) => {
       }),
     });
 
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("OpenAI API error:", errorData);
+      throw new Error(`OpenAI API error: ${errorData.error?.message || 'Unknown error'}`);
+    }
+
     const data = await response.json();
     
     if (data.error) {
-      throw new Error(`OpenAI API error: ${data.error.message}`);
+      console.error("OpenAI API returned error:", data.error);
+      throw new Error(`OpenAI API error: ${data.error.message || 'Unknown error'}`);
     }
     
+    console.log("Report generated successfully");
     const reportText = data.choices[0].message.content;
 
     return new Response(

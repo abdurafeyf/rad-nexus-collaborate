@@ -64,14 +64,7 @@ const ScanUploader: React.FC<ScanUploaderProps> = ({ patientId, patientName, doc
       const fileExt = file.name.split('.').pop();
       const fileName = `${patientId}/${fileId}.${fileExt}`;
       
-      // Define a progress handler function
-      const handleProgress = (progress: { loaded: number; total: number }) => {
-        const percent = Math.floor((progress.loaded / progress.total) * 100);
-        updateFileStatus(fileId, { progress: percent });
-      };
-      
-      // Upload to Supabase Storage
-      // Using a separate options object to avoid TypeScript error with onUploadProgress
+      // Define upload options
       const uploadOptions = {
         cacheControl: '3600',
       };
@@ -89,7 +82,7 @@ const ScanUploader: React.FC<ScanUploaderProps> = ({ patientId, patientName, doc
         }
       });
       
-      // Upload with standard method without progress tracking
+      // Upload with standard method
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from("scans")
         .upload(fileName, file, uploadOptions);
@@ -136,7 +129,8 @@ const ScanUploader: React.FC<ScanUploaderProps> = ({ patientId, patientName, doc
         
         if (sessionError) throw sessionError;
         
-        const accessToken = sessionData?.session?.access_token;
+        const session = sessionData?.session;
+        const accessToken = session?.access_token;
         
         if (!accessToken) {
           throw new Error("Authentication required to generate reports.");
@@ -159,10 +153,16 @@ const ScanUploader: React.FC<ScanUploaderProps> = ({ patientId, patientName, doc
         
         if (!generateReportResponse.ok) {
           const errorData = await generateReportResponse.json();
-          throw new Error(`Report generation failed: ${errorData.error}`);
+          const errorMessage = errorData.error || 'Unknown error occurred';
+          console.error('Report generation error:', errorData);
+          throw new Error(`Report generation failed: ${errorMessage}`);
         }
         
         const reportData = await generateReportResponse.json();
+        
+        if (!reportData || !reportData.report) {
+          throw new Error("Invalid report data received from API");
+        }
         
         // 4. Insert report in database
         const { data: savedReport, error: reportError } = await supabase
