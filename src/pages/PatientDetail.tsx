@@ -46,19 +46,20 @@ type Patient = {
   created_at: string;
 };
 
-// X-ray type definition
-type XRay = {
+// Scan record type definition
+type ScanRecord = {
   id: string;
   patient_id: string;
-  date: string;
-  file_path: string | null;
+  date_taken: string;
+  file_url: string | null;
+  scan_type: string;
   created_at: string;
 };
 
 // Report type definition
 type Report = {
   id: string;
-  scan_id: string;
+  scan_record_id: string;
   patient_id: string;
   content: string;
   status: "draft" | "published";
@@ -72,7 +73,7 @@ const PatientDetail = () => {
   const navigate = useNavigate();
   
   const [patient, setPatient] = useState<Patient | null>(null);
-  const [xrays, setXrays] = useState<XRay[]>([]);
+  const [scanRecords, setScanRecords] = useState<ScanRecord[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isNotesDialogOpen, setIsNotesDialogOpen] = useState(false);
@@ -111,18 +112,18 @@ const PatientDetail = () => {
       setPatient(patientData as Patient);
       setUpdatedNotes(patientData.notes || "");
 
-      // Fetch x-rays
-      const { data: xrayData, error: xrayError } = await supabase
-        .from("x_rays")
+      // Fetch scan records
+      const { data: scanData, error: scanError } = await supabase
+        .from("scan_records")
         .select("*")
         .eq("patient_id", patientId)
-        .order("date", { ascending: false });
+        .order("date_taken", { ascending: false });
 
-      if (xrayError) {
-        throw xrayError;
+      if (scanError) {
+        throw scanError;
       }
 
-      setXrays(xrayData as XRay[]);
+      setScanRecords(scanData as ScanRecord[]);
 
       // Fetch reports
       const { data: reportData, error: reportError } = await supabase
@@ -380,7 +381,7 @@ const PatientDetail = () => {
                 </Card>
               </div>
 
-              {/* Right column: Reports and X-rays */}
+              {/* Right column: Reports and Scan Records */}
               <div className="lg:col-span-2 space-y-6">
                 {/* Reports */}
                 <Card>
@@ -441,41 +442,45 @@ const PatientDetail = () => {
                   </CardContent>
                 </Card>
 
-                {/* X-rays */}
+                {/* Scan Records */}
                 <Card>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-lg font-medium">X-ray Records</CardTitle>
+                    <CardTitle className="text-lg font-medium">Scan Records</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {xrays.length === 0 ? (
+                    {scanRecords.length === 0 ? (
                       <div className="py-8 text-center">
                         <p className="text-muted-foreground">
-                          No X-ray records available for this patient.
+                          No scan records available for this patient.
                         </p>
                         <Button
                           variant="outline"
                           className="mt-4"
                           onClick={() => navigate(`/doctor/patients/${patientId}/scan/upload`)}
                         >
-                          Upload New X-ray
+                          Upload New Scan
                         </Button>
                       </div>
                     ) : (
                       <div className="space-y-4">
-                        {xrays.map((xray) => (
+                        {scanRecords.map((record) => (
                           <div
-                            key={xray.id}
+                            key={record.id}
                             className="flex items-center justify-between rounded-lg border p-4"
                           >
                             <div>
                               <div className="font-medium">
-                                X-ray from {format(new Date(xray.date), "PPP")}
+                                {record.scan_type} from {format(new Date(record.date_taken), "PPP")}
                               </div>
                               <div className="text-sm text-muted-foreground">
-                                ID: {xray.id}
+                                ID: {record.id}
                               </div>
                             </div>
-                            <Button variant="ghost" size="sm">
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => navigate(`/doctor/scan-records/${record.id}`)}
+                            >
                               View
                               <ChevronRight className="ml-1 h-4 w-4" />
                             </Button>

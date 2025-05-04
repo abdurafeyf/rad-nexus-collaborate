@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Upload, FileUp, Loader2, FileCheck, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -96,22 +95,6 @@ const ScanUploader: React.FC<ScanUploaderProps> = ({ patientId, patientName, doc
         .from("scans")
         .getPublicUrl(uploadData.path);
       
-      // 2. Insert scan record in database
-      const { data: scanData, error: scanError } = await supabase
-        .from("scans")
-        .insert([
-          {
-            patient_id: patientId,
-            file_path: uploadData.path,
-            file_type: file.type,
-            doctor_id: doctorId
-          }
-        ])
-        .select()
-        .single();
-      
-      if (scanError) throw scanError;
-      
       // Get file type for display
       let scanType = 'Unknown';
       if (file.type.includes('image')) {
@@ -121,6 +104,26 @@ const ScanUploader: React.FC<ScanUploaderProps> = ({ patientId, patientName, doc
       } else if (file.type.includes('pdf')) {
         scanType = 'Document';
       }
+      
+      // 2. Insert scan record in database
+      const { data: scanData, error: scanError } = await supabase
+        .from("scan_records")
+        .insert([
+          {
+            patient_id: patientId,
+            file_url: uploadData.path,
+            scan_type: scanType,
+            date_taken: new Date().toISOString().split("T")[0],
+            doctor_id: doctorId,
+            visibility: "both",
+            uploaded_by: doctorId, // Using doctorId as uploaded_by
+            notes: `${scanType} scan of ${patientName}`
+          }
+        ])
+        .select()
+        .single();
+      
+      if (scanError) throw scanError;
       
       // 3. Call OpenAI Vision API to generate report (only for image types)
       if (file.type.includes('image')) {
@@ -169,7 +172,7 @@ const ScanUploader: React.FC<ScanUploaderProps> = ({ patientId, patientName, doc
           .from("reports")
           .insert([
             {
-              scan_id: scanData.id,
+              scan_record_id: scanData.id,
               patient_id: patientId,
               content: reportData.report,
               report_text: reportData.report_text,
@@ -211,7 +214,7 @@ const ScanUploader: React.FC<ScanUploaderProps> = ({ patientId, patientName, doc
           .from("reports")
           .insert([
             {
-              scan_id: scanData.id,
+              scan_record_id: scanData.id,
               patient_id: patientId,
               content: `# ${scanType} File Uploaded\n\nFile: ${file.name}\nUploaded: ${new Date().toLocaleString()}\n\nThis file type requires manual review by a medical professional.`,
               status: 'draft',

@@ -263,7 +263,7 @@ export type Database = {
           patient_id: string
           published_at: string | null
           report_text: string | null
-          scan_id: string
+          scan_record_id: string
           status: string
           updated_at: string
         }
@@ -276,7 +276,7 @@ export type Database = {
           patient_id: string
           published_at?: string | null
           report_text?: string | null
-          scan_id: string
+          scan_record_id: string
           status?: string
           updated_at?: string
         }
@@ -289,7 +289,7 @@ export type Database = {
           patient_id?: string
           published_at?: string | null
           report_text?: string | null
-          scan_id?: string
+          scan_record_id?: string
           status?: string
           updated_at?: string
         }
@@ -302,10 +302,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "reports_scan_id_fkey"
-            columns: ["scan_id"]
+            foreignKeyName: "reports_scan_record_id_fkey"
+            columns: ["scan_record_id"]
             isOneToOne: false
-            referencedRelation: "scans"
+            referencedRelation: "scan_records"
             referencedColumns: ["id"]
           },
         ]
@@ -314,6 +314,7 @@ export type Database = {
         Row: {
           created_at: string | null
           date_taken: string
+          doctor_id: string | null
           file_url: string | null
           id: string
           notes: string | null
@@ -325,6 +326,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           date_taken: string
+          doctor_id?: string | null
           file_url?: string | null
           id?: string
           notes?: string | null
@@ -336,6 +338,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           date_taken?: string
+          doctor_id?: string | null
           file_url?: string | null
           id?: string
           notes?: string | null
@@ -346,93 +349,14 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "scan_records_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "patients"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      scans: {
-        Row: {
-          doctor_id: string
-          file_path: string
-          file_type: string
-          id: string
-          patient_id: string
-          uploaded_at: string
-        }
-        Insert: {
-          doctor_id: string
-          file_path: string
-          file_type: string
-          id?: string
-          patient_id: string
-          uploaded_at?: string
-        }
-        Update: {
-          doctor_id?: string
-          file_path?: string
-          file_type?: string
-          id?: string
-          patient_id?: string
-          uploaded_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "scans_doctor_id_fkey"
+            foreignKeyName: "scan_records_doctor_id_fkey"
             columns: ["doctor_id"]
             isOneToOne: false
             referencedRelation: "doctors"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "scans_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "patients"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      x_rays: {
-        Row: {
-          created_at: string
-          date: string
-          file_path: string | null
-          id: string
-          notes: string | null
-          patient_id: string
-          scan_type: string | null
-          uploaded_by: string | null
-          visibility: string | null
-        }
-        Insert: {
-          created_at?: string
-          date: string
-          file_path?: string | null
-          id?: string
-          notes?: string | null
-          patient_id: string
-          scan_type?: string | null
-          uploaded_by?: string | null
-          visibility?: string | null
-        }
-        Update: {
-          created_at?: string
-          date?: string
-          file_path?: string | null
-          id?: string
-          notes?: string | null
-          patient_id?: string
-          scan_type?: string | null
-          uploaded_by?: string | null
-          visibility?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "x_rays_patient_id_fkey"
+            foreignKeyName: "scan_records_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patients"

@@ -12,7 +12,7 @@ import { format } from "date-fns";
 
 type Report = {
   id: string;
-  scan_id: string;
+  scan_record_id: string;
   patient_id: string;
   content: string;
   status: "draft" | "published";
@@ -22,12 +22,12 @@ type Report = {
   hospital_name: string | null;
 };
 
-type Scan = {
+type ScanRecord = {
   id: string;
   patient_id: string;
-  file_path: string;
-  file_type: string;
-  uploaded_at: string;
+  file_url: string;
+  scan_type: string;
+  date_taken: string;
 };
 
 const PatientReport = () => {
@@ -36,7 +36,7 @@ const PatientReport = () => {
   const { toast } = useToast();
   
   const [report, setReport] = useState<Report | null>(null);
-  const [scan, setScan] = useState<Scan | null>(null);
+  const [scan, setScan] = useState<ScanRecord | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
 
@@ -49,7 +49,7 @@ const PatientReport = () => {
         if (reportId === 'demo-report-1') {
           const demoReport = {
             id: 'demo-report-1',
-            scan_id: 'demo-scan-1',
+            scan_record_id: 'demo-scan-1',
             patient_id: '3b5a15a7-c156-4f48-9622-56c41a8b3c8e',
             content: "# Radiology Report\n\n## Patient Information\nPatient Name: John Doe\n\n## Analysis\nChest X-ray performed to evaluate for pneumonia.\n\n## Findings\nLungs are clear without focal consolidation, effusion, or pneumothorax. Heart size is normal. No pleural effusion. No acute osseous abnormality.\n\n## Impression\nNo acute cardiopulmonary process identified.",
             status: "published" as "published",
@@ -86,22 +86,22 @@ const PatientReport = () => {
         
         setReport(reportData as Report);
         
-        // Fetch scan data
+        // Fetch scan record data
         const { data: scanData, error: scanError } = await supabase
-          .from("scans")
+          .from("scan_records")
           .select("*")
-          .eq("id", reportData.scan_id)
+          .eq("id", reportData.scan_record_id)
           .single();
         
         if (scanError) throw scanError;
         
-        setScan(scanData as Scan);
+        setScan(scanData as ScanRecord);
         
-        // Get image URL if it's an image
-        if (scanData.file_type.startsWith("image/")) {
+        // Get image URL if it has a file URL
+        if (scanData.file_url && scanData.file_url !== "placeholder.jpg") {
           const { data: imageData } = await supabase.storage
             .from("scans")
-            .getPublicUrl(scanData.file_path);
+            .getPublicUrl(scanData.file_url);
           
           setImageUrl(imageData.publicUrl);
         }
@@ -250,6 +250,15 @@ const PatientReport = () => {
                     <p className="flex items-center text-sm text-gray-600">
                       <Calendar className="mr-2 h-4 w-4" />
                       {format(new Date(report.published_at), "PPPP")}
+                    </p>
+                  </div>
+                )}
+                
+                {scan && scan.scan_type && (
+                  <div>
+                    <p className="font-medium mb-1">Scan Type</p>
+                    <p className="text-sm text-gray-600">
+                      {scan.scan_type}
                     </p>
                   </div>
                 )}

@@ -110,14 +110,16 @@ export const createPatient = async (params: CreatePatientParams): Promise<Patien
     
     // Create a placeholder scan only for new patients
     if (isNewPatient) {
-      // Create a placeholder scan
+      // Create a placeholder scan record
       const { data: placeholderScan, error: scanError } = await supabase
-        .from("scans")
+        .from("scan_records")
         .insert({
           patient_id: patientId,
           doctor_id: params.doctorId,
-          file_path: "placeholder.jpg", // Placeholder file path
-          file_type: "placeholder"      // Placeholder file type
+          file_url: "placeholder.jpg", // Placeholder file path
+          scan_type: "placeholder",    // Placeholder scan type
+          date_taken: new Date().toISOString().split('T')[0],
+          visibility: "both"
         })
         .select();
       
@@ -128,14 +130,14 @@ export const createPatient = async (params: CreatePatientParams): Promise<Patien
       
       console.log("Placeholder scan created:", placeholderScan);
       
-      // Now create the report with the scan_id from the placeholder scan
+      // Now create the report with the scan_record_id from the placeholder scan
       if (placeholderScan && placeholderScan.length > 0) {
         const scanId = placeholderScan[0].id;
         const { error: reportError } = await supabase
           .from("reports")
           .insert({
             patient_id: patientId,
-            scan_id: scanId,
+            scan_record_id: scanId,
             content: `Initial case opened for ${params.name}. No scans uploaded yet.`,
             status: 'draft',
             hospital_name: 'Radixpert Medical Center'

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Edit, Check, FileText, Send } from "lucide-react";
@@ -21,7 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 type Report = {
   id: string;
-  scan_id: string;
+  scan_record_id: string;
   patient_id: string;
   content: string;
   status: "draft" | "published";
@@ -37,10 +36,11 @@ type PatientDetails = {
   email: string;
 };
 
-type ScanDetails = {
+type ScanRecord = {
   id: string;
-  file_path: string;
-  file_type: string;
+  file_url: string;
+  file_type?: string;
+  scan_type: string;
 };
 
 const ReportReview = () => {
@@ -50,7 +50,7 @@ const ReportReview = () => {
   
   const [report, setReport] = useState<Report | null>(null);
   const [patient, setPatient] = useState<PatientDetails | null>(null);
-  const [scan, setScan] = useState<ScanDetails | null>(null);
+  const [scan, setScan] = useState<ScanRecord | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState("");
@@ -85,21 +85,21 @@ const ReportReview = () => {
         if (patientError) throw patientError;
         setPatient(patientData as PatientDetails);
         
-        // Fetch scan
+        // Fetch scan record
         const { data: scanData, error: scanError } = await supabase
-          .from("scans")
-          .select("id, file_path, file_type")
-          .eq("id", reportData.scan_id)
+          .from("scan_records")
+          .select("id, file_url, scan_type")
+          .eq("id", reportData.scan_record_id)
           .single();
         
         if (scanError) throw scanError;
-        setScan(scanData as ScanDetails);
+        setScan(scanData as ScanRecord);
         
-        // Get image URL if it's an image
-        if (scanData.file_type.startsWith("image/")) {
+        // Get image URL if it's an image path
+        if (scanData.file_url && scanData.file_url !== "placeholder.jpg") {
           const { data: imageData } = await supabase.storage
             .from("scans")
-            .getPublicUrl(scanData.file_path);
+            .getPublicUrl(scanData.file_url);
           
           setImageUrl(imageData.publicUrl);
         }
