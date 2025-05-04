@@ -15,6 +15,7 @@ import NotificationsPanel from "@/components/patient/NotificationsPanel";
 import PatientProfilePanel from "@/components/patient/PatientProfilePanel";
 import QuickActionsPanel from "@/components/patient/QuickActionsPanel";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useQuery } from "@tanstack/react-query";
 
 type CaseWithReport = {
   id: string;
@@ -46,8 +47,6 @@ const PatientPortal = () => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
   
-  const [cases, setCases] = useState<CaseWithReport[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [patientName, setPatientName] = useState("");
   const [patientId, setPatientId] = useState<string | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -80,128 +79,206 @@ const PatientPortal = () => {
     }
   };
 
-  useEffect(() => {
-    const fetchPatientData = async () => {
-      try {
-        // Get the current user
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (!user) {
-          navigate("/login/patient");
-          return;
-        }
-        
-        // Fetch patient details by email
-        const { data: patientData, error: patientError } = await supabase
-          .from("patients")
-          .select("id, name")
-          .eq("email", user.email)
-          .single();
-        
-        if (patientError) throw patientError;
-        
-        setPatientName(patientData.name);
-        setPatientId(patientData.id);
-        
-        // Fetch reports with proper nested query structure
-        const { data: reportData, error: reportError } = await supabase
-          .from("reports")
-          .select(`
-            id,
-            scan_id,
-            patient_id,
-            hospital_name,
-            status,
-            published_at,
-            created_at,
-            scans (
-              doctor_id,
-              doctors:doctor_id (
-                first_name,
-                last_name
-              )
-            )
-          `)
-          .eq("patient_id", patientData.id)
-          .order("created_at", { ascending: false });
-        
-        if (reportError) throw reportError;
-        
-        // Format the case data
-        const formattedCases: CaseWithReport[] = reportData.map((report) => {
-          const reportDate = report.published_at || report.created_at;
-          const title = `Radiology Report - ${format(parseISO(reportDate), "MMM d, yyyy")}`;
-          
-          // Get doctor name if available
-          let doctorName = "Unknown Doctor";
-          if (report.scans && report.scans.doctors && typeof report.scans.doctors === 'object') {
-            const doctorData = report.scans.doctors as DoctorData;
-            if (doctorData.first_name && doctorData.last_name) {
-              doctorName = `Dr. ${doctorData.first_name} ${doctorData.last_name}`;
-            }
-          }
-          
-          return {
-            id: `case-${report.id}`,
-            report_id: report.id,
-            hospital_name: report.hospital_name || "General Hospital",
-            doctor_name: doctorName,
-            title: title,
-            date: reportDate,
-            status: report.status,
-            scan_id: report.scan_id,
-            patient_id: report.patient_id
-          };
-        });
-        
-        setCases(formattedCases);
-        
-        // Fetch notifications
-        const { data: notificationsData, error: notificationsError } = await supabase
-          .from("notifications")
-          .select("*")
-          .eq("patient_id", patientData.id)
-          .order("created_at", { ascending: false });
-          
-        if (notificationsError) throw notificationsError;
-        
-        setNotifications(notificationsData || []);
-        
-        // Calculate unread notifications count
-        const unreadNotifications = notificationsData?.filter(n => !n.read) || [];
-        setUnreadCount(unreadNotifications.length);
-        
-        // Fetch unread messages count
-        const { data: messagesData, error: messagesError } = await supabase
-          .from("chats")
-          .select("id")
-          .eq("patient_id", patientData.id)
-          .eq("sender_type", "doctor")
-          .order("created_at", { ascending: false })
-          .limit(10);
-          
-        const unreadMessages = messagesData?.length || 0;
-        
-        // Set summary stats
-        setStats({
-          totalCases: formattedCases.length,
-          unreadMessages: unreadMessages,
-          pendingForms: unreadNotifications.filter(n => n.title.includes("consent") || n.message.includes("consent")).length
-        });
-        
-      } catch (error: any) {
-        toast({
-          title: "Error fetching patient data",
-          description: error.message,
-          variant: "destructive",
-        });
-      } finally {
-        setIsLoading(false);
+  // Fetch the current user
+  const { data: currentUser, isLoading: isLoadingUser, error: userError } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: async () => {
+      const { data, error } = await supabase.auth.getUser();
+      if (error) throw error;
+      if (!data.user) {
+        navigate("/login/patient");
+        throw new Error("User not authenticated");
       }
-    };
+      return data.user;
+    },
+  });
+
+  // Fetch patient details
+  const { data: patientData, isLoading: isLoadingPatient, error: patientError } = useQuery({
+    queryKey: ['patientData', currentUser?.email],
+    enabled: !!currentUser?.email,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("patients")
+        .select("id, name")
+        .eq("email", currentUser?.email)
+        .single();
+        
+      if (error) throw error;
+      
+      setPatientName(data.name);
+      setPatientId(data.id);
+      
+      return data;
+    },
+  });
+
+  // Fetch reports
+  const { data: reports, isLoading: isLoadingReports, error: reportsError } = useQuery({
+    queryKey: ['patientReports', patientId],
+    enabled: !!patientId,
+    queryFn: async () => {
+      console.log("Fetching reports for patient ID:", patientId);
+      
+      const { data, error } = await supabase
+        .from("reports")
+        .select(`
+          id,
+          scan_id,
+          patient_id,
+          hospital_name,
+          status,
+          published_at,
+          created_at,
+          scans (
+            doctor_id,
+            doctors:doctor_id (
+              first_name,
+              last_name
+            )
+          )
+        `)
+        .eq("patient_id", patientId)
+        .order("created_at", { ascending: false });
+      
+      if (error) throw error;
+      
+      console.log("Reports fetched:", data?.length || 0);
+      console.log("Sample report data:", data?.[0]);
+      
+      return data;
+    },
+  });
+
+  // Fetch notifications
+  const { data: notificationsData, isLoading: isLoadingNotifications, error: notificationsError } = useQuery({
+    queryKey: ['patientNotifications', patientId],
+    enabled: !!patientId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("notifications")
+        .select("*")
+        .eq("patient_id", patientId)
+        .order("created_at", { ascending: false });
+        
+      if (error) throw error;
+      
+      console.log("Notifications fetched:", data?.length || 0);
+      
+      // Set notifications state
+      setNotifications(data || []);
+      
+      // Calculate unread count
+      const unreadNotifications = data?.filter(n => !n.read) || [];
+      setUnreadCount(unreadNotifications.length);
+      
+      return data;
+    },
+  });
+
+  // Fetch chat messages
+  const { data: messagesData, isLoading: isLoadingMessages, error: messagesError } = useQuery({
+    queryKey: ['patientMessages', patientId],
+    enabled: !!patientId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("chats")
+        .select("id")
+        .eq("patient_id", patientId)
+        .eq("sender_type", "doctor")
+        .order("created_at", { ascending: false })
+        .limit(10);
+        
+      if (error) throw error;
+      
+      return data;
+    },
+  });
+
+  // Format cases data when reports are available
+  const cases: CaseWithReport[] = reports?.map((report) => {
+    const reportDate = report.published_at || report.created_at;
+    const title = `Radiology Report - ${format(parseISO(reportDate), "MMM d, yyyy")}`;
     
-    fetchPatientData();
-  }, [navigate, toast]);
+    // Get doctor name if available
+    let doctorName = "Unknown Doctor";
+    if (report.scans && report.scans.doctors && typeof report.scans.doctors === 'object') {
+      const doctorData = report.scans.doctors as DoctorData;
+      if (doctorData.first_name && doctorData.last_name) {
+        doctorName = `Dr. ${doctorData.first_name} ${doctorData.last_name}`;
+      }
+    }
+    
+    return {
+      id: `case-${report.id}`,
+      report_id: report.id,
+      hospital_name: report.hospital_name || "General Hospital",
+      doctor_name: doctorName,
+      title: title,
+      date: reportDate,
+      status: report.status,
+      scan_id: report.scan_id,
+      patient_id: report.patient_id
+    };
+  }) || [];
+
+  // Update stats when data is available
+  useEffect(() => {
+    if (cases && notificationsData && messagesData) {
+      const unreadNotifications = notificationsData?.filter(n => !n.read) || [];
+      const pendingForms = unreadNotifications.filter(
+        n => n.title.includes("consent") || n.message.includes("consent")
+      ).length;
+      
+      setStats({
+        totalCases: cases.length,
+        unreadMessages: messagesData.length || 0,
+        pendingForms: pendingForms
+      });
+    }
+  }, [cases, notificationsData, messagesData]);
+
+  // Handle errors
+  useEffect(() => {
+    if (userError) {
+      console.error("User error:", userError);
+      toast({
+        title: "Authentication Error",
+        description: "Please log in again",
+        variant: "destructive",
+      });
+      navigate("/login/patient");
+    }
+    
+    if (patientError) {
+      console.error("Patient error:", patientError);
+      toast({
+        title: "Patient Data Error",
+        description: "Failed to load your profile information",
+        variant: "destructive",
+      });
+    }
+    
+    if (reportsError) {
+      console.error("Reports error:", reportsError);
+      toast({
+        title: "Medical Records Error",
+        description: "Failed to load your medical records",
+        variant: "destructive",
+      });
+    }
+    
+    if (notificationsError) {
+      console.error("Notifications error:", notificationsError);
+    }
+    
+    if (messagesError) {
+      console.error("Messages error:", messagesError);
+    }
+  }, [userError, patientError, reportsError, notificationsError, messagesError, toast, navigate]);
+
+  // Check if all critical data is still loading
+  const isLoading = isLoadingUser || isLoadingPatient || isLoadingReports;
 
   if (isLoading) {
     return (
