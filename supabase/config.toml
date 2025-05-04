@@ -4,5 +4,8 @@ project_id = "ruueewpswsmmagpsxbvk"
 [functions.send-email]
 verify_jwt = false
 
+[functions.generate-report]
+verify_jwt = false
+
 [storage.scans]
 public = true

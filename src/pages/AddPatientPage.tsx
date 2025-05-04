@@ -21,6 +21,8 @@ const AddPatientPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user } = useAuth();
   const [currentDoctorId, setCurrentDoctorId] = useState<string | null>(null);
+  const [createdPatientId, setCreatedPatientId] = useState<string | null>(null);
+  const [createdPatientName, setCreatedPatientName] = useState<string | null>(null);
   
   useEffect(() => {
     const fetchDoctorInfo = async () => {
@@ -55,7 +57,6 @@ const AddPatientPage: React.FC = () => {
       name: "",
       email: "",
       notes: "",
-      xrays: [],
     },
   });
 
@@ -88,29 +89,34 @@ const AddPatientPage: React.FC = () => {
         doctorId: currentDoctorId,
         dateOfBirth: data.dateOfBirth,
         gender: data.gender,
-        notes: data.notes,
-        xrays: data.xrays?.map(xray => ({
-          date: xray.date,
-          scanType: xray.scanType
-        }))
+        notes: data.notes
       });
 
       if (!result.success) {
         throw new Error(result.error);
       }
-
-      toast({
-        title: result.isNewPatient ? "Patient added successfully" : "Patient information updated",
-        description: result.isNewPatient 
-          ? "The patient has been added and will receive a notification when they sign up."
-          : "The patient has been updated with new information.",
-      });
-
-      // Reset the form
-      form.reset();
       
-      // Navigate back to dashboard
-      navigate("/doctor/dashboard");
+      // Set created patient info for uploader
+      if (result.patientId) {
+        setCreatedPatientId(result.patientId);
+        setCreatedPatientName(data.name);
+        
+        toast({
+          title: result.isNewPatient ? "Patient added successfully" : "Patient information updated",
+          description: "You can now upload scan files for this patient.",
+        });
+      } else {
+        // Success but navigate away
+        toast({
+          title: result.isNewPatient ? "Patient added successfully" : "Patient information updated",
+          description: result.isNewPatient 
+            ? "The patient has been added and will receive a notification when they sign up."
+            : "The patient has been updated with new information.",
+        });
+
+        // Navigate back to dashboard
+        navigate("/doctor/dashboard");
+      }
     } catch (error: any) {
       toast({
         title: "Error adding patient",
@@ -144,30 +150,61 @@ const AddPatientPage: React.FC = () => {
           </div>
           
           <div className="max-w-3xl mx-auto">
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <PersonalInfoSection form={form} />
-                <MedicalNotesSection form={form} />
-                <ScanRecordsSection form={form} />
+            {!createdPatientId ? (
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                  <PersonalInfoSection form={form} />
+                  <MedicalNotesSection form={form} />
 
+                  <div className="flex justify-end space-x-4 pt-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => navigate("/doctor/dashboard")}
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      type="submit" 
+                      disabled={isSubmitting || !currentDoctorId}
+                      className="bg-teal-500 hover:bg-teal-600"
+                    >
+                      {isSubmitting ? "Adding Patient..." : "Add Patient"}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            ) : (
+              <div className="space-y-6">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                  <h2 className="font-semibold text-green-800 mb-1">Patient Added Successfully</h2>
+                  <p className="text-green-700 text-sm">You can now upload scan files for this patient.</p>
+                </div>
+                
+                <ScanRecordsSection 
+                  form={form} 
+                  patientId={createdPatientId}
+                  patientName={createdPatientName || ""}
+                  doctorId={currentDoctorId || ""}
+                  isDoctor={true}
+                />
+                
                 <div className="flex justify-end space-x-4 pt-4">
                   <Button
-                    type="button"
+                    onClick={() => navigate(`/doctor/patients/${createdPatientId}`)}
+                    className="bg-teal-500 hover:bg-teal-600"
+                  >
+                    View Patient Details
+                  </Button>
+                  <Button 
                     variant="outline"
                     onClick={() => navigate("/doctor/dashboard")}
                   >
-                    Cancel
-                  </Button>
-                  <Button 
-                    type="submit" 
-                    disabled={isSubmitting || !currentDoctorId}
-                    className="bg-teal-500 hover:bg-teal-600"
-                  >
-                    {isSubmitting ? "Adding Patient..." : "Add Patient"}
+                    Return to Dashboard
                   </Button>
                 </div>
-              </form>
-            </Form>
+              </div>
+            )}
           </div>
         </div>
       </div>

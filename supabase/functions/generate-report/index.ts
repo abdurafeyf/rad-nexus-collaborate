@@ -21,7 +21,7 @@ serve(async (req) => {
     }
     
     // Get request body
-    const { imageUrl, patientName, patientId } = await req.json();
+    const { imageUrl, patientName, patientId, scanType, fileName } = await req.json();
     
     if (!imageUrl) {
       throw new Error("Image URL is required.");
@@ -37,6 +37,8 @@ serve(async (req) => {
       ## Patient Information
       Patient ID: ${patientId || 'N/A'}
       Patient Name: ${patientName || 'N/A'}
+      File: ${fileName || 'N/A'}
+      Scan Type: ${scanType || 'Unknown'}
       
       ## Analysis
       [Describe the type of scan and what it was performed to evaluate]
@@ -82,7 +84,7 @@ serve(async (req) => {
     const reportText = data.choices[0].message.content;
 
     return new Response(
-      JSON.stringify({ report: reportText }),
+      JSON.stringify({ report: reportText, report_text: reportText }),
       { 
         headers: { 
           ...corsHeaders,

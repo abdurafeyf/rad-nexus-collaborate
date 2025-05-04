@@ -257,10 +257,12 @@ export type Database = {
         Row: {
           content: string
           created_at: string
+          generated_at: string | null
           hospital_name: string | null
           id: string
           patient_id: string
           published_at: string | null
+          report_text: string | null
           scan_id: string
           status: string
           updated_at: string
@@ -268,10 +270,12 @@ export type Database = {
         Insert: {
           content: string
           created_at?: string
+          generated_at?: string | null
           hospital_name?: string | null
           id?: string
           patient_id: string
           published_at?: string | null
+          report_text?: string | null
           scan_id: string
           status?: string
           updated_at?: string
@@ -279,10 +283,12 @@ export type Database = {
         Update: {
           content?: string
           created_at?: string
+          generated_at?: string | null
           hospital_name?: string | null
           id?: string
           patient_id?: string
           published_at?: string | null
+          report_text?: string | null
           scan_id?: string
           status?: string
           updated_at?: string

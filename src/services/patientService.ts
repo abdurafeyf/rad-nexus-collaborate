@@ -8,10 +8,6 @@ export interface CreatePatientParams {
   gender?: 'male' | 'female' | 'other' | '';
   notes?: string;
   doctorId: string;
-  xrays?: {
-    date: Date;
-    scanType: "X-Ray" | "MRI" | "CT" | "Ultrasound" | "Other";
-  }[];
 }
 
 export interface PatientCreationResult {
@@ -58,74 +54,61 @@ export const createPatient = async (params: CreatePatientParams): Promise<Patien
 
       console.log("New patient created:", patient);
       patientId = patient.id;
+      
+      // Create notification for new patients
+      const { error: notificationError } = await supabase
+        .from("notifications")
+        .insert({
+          patient_id: patientId,
+          title: "Welcome to Radixpert",
+          message: "Your doctor has added you to Radixpert. Please sign up using your email address to access your medical records and reports.",
+        });
+
+      if (notificationError) {
+        console.error("Failed to create welcome notification:", notificationError);
+      } else {
+        console.log("Welcome notification created for new patient");
+      }
     } else {
       patientId = existingPatient.id;
       console.log("Using existing patient ID:", patientId);
-    }
-
-    // Handle X-rays if any
-    if (params.xrays && params.xrays.length > 0) {
-      console.log("Processing X-rays for patient:", patientId);
-      for (const xray of params.xrays) {
-        // Insert X-ray record
-        const { error: xrayError, data: xrayData } = await supabase
-          .from("x_rays")
-          .insert({
-            patient_id: patientId,
-            date: xray.date.toISOString().split("T")[0],
-            scan_type: xray.scanType,
-            visibility: "both" // Set explicit visibility value
-          })
-          .select();
-
-        if (xrayError) {
-          console.error("Error creating x-ray record:", xrayError);
-          throw xrayError;
-        }
-        
-        console.log("X-ray record created:", xrayData);
-        
-        // Create a corresponding scan record for better compatibility with new schema
-        const { error: scanRecordError } = await supabase
-          .from("scan_records")
-          .insert({
-            patient_id: patientId,
-            date_taken: xray.date.toISOString().split("T")[0],
-            scan_type: xray.scanType,
-            visibility: "both",
-            notes: `Scan record for ${xray.scanType}`
-          });
-          
-        if (scanRecordError) {
-          console.error("Error creating scan record:", scanRecordError);
-          // Continue execution - this is a supplementary record
-        }
-        
-        // Create a corresponding report entry for each X-ray
-        if (xrayData && xrayData.length > 0) {
-          const xrayId = xrayData[0].id;
-          const { error: reportError } = await supabase
-            .from("reports")
-            .insert({
-              patient_id: patientId,
-              scan_id: xrayId,
-              content: `Initial assessment for ${params.name}'s ${xray.scanType} scan from ${xray.date.toLocaleDateString()}.`,
-              status: 'pending',
-              hospital_name: 'Radixpert Medical Center'
-            });
-            
-          if (reportError) {
-            console.error("Error creating report for x-ray:", reportError);
-            throw reportError;
-          }
-          console.log("Report created for x-ray:", xrayId);
-        }
-      }
-    } else {
-      // For patients without X-rays, we need to create a scan first
-      // before we can create a report (due to the foreign key constraint)
-      console.log("No X-rays provided, creating a placeholder scan and report");
       
+      // Update patient information
+      const { error: updateError } = await supabase
+        .from("patients")
+        .update({
+          name: params.name,
+          date_of_birth: params.dateOfBirth ? params.dateOfBirth.toISOString().split("T")[0] : null,
+          gender: params.gender || null,
+          notes: params.notes || null,
+          updated_at: new Date().toISOString(),
+          doctor_id: params.doctorId,
+        })
+        .eq("id", patientId);
+        
+      if (updateError) {
+        console.error("Error updating patient:", updateError);
+        throw updateError;
+      }
+      
+      // Create notification for existing patients
+      const { error: notificationError } = await supabase
+        .from("notifications")
+        .insert({
+          patient_id: patientId,
+          title: "Medical Information Updated",
+          message: "Your doctor has updated your information. Please log in to view the changes.",
+        });
+
+      if (notificationError) {
+        console.error("Failed to create update notification:", notificationError);
+      } else {
+        console.log("Update notification created for existing patient");
+      }
+    }
+    
+    // Create a placeholder scan only for new patients
+    if (isNewPatient) {
       // Create a placeholder scan
       const { data: placeholderScan, error: scanError } = await supabase
         .from("scans")
@@ -153,7 +136,7 @@ export const createPatient = async (params: CreatePatientParams): Promise<Patien
             patient_id: patientId,
             scan_id: scanId,
             content: `Initial case opened for ${params.name}. No scans uploaded yet.`,
-            status: 'pending',
+            status: 'draft',
             hospital_name: 'Radixpert Medical Center'
           });
           
@@ -162,38 +145,6 @@ export const createPatient = async (params: CreatePatientParams): Promise<Patien
           throw reportError;
         }
         console.log("Default report created with placeholder scan");
-      }
-    }
-
-    // Create notification for new patients
-    if (isNewPatient) {
-      const { error: notificationError } = await supabase
-        .from("notifications")
-        .insert({
-          patient_id: patientId,
-          title: "Welcome to Radixpert",
-          message: "Your doctor has added you to Radixpert. Please sign up using your email address to access your medical records and reports.",
-        });
-
-      if (notificationError) {
-        console.error("Failed to create welcome notification:", notificationError);
-      } else {
-        console.log("Welcome notification created for new patient");
-      }
-    } else {
-      // Create notification for existing patients
-      const { error: notificationError } = await supabase
-        .from("notifications")
-        .insert({
-          patient_id: patientId,
-          title: "New Medical Information Added",
-          message: "Your doctor has updated your information. Please log in to view the changes.",
-        });
-
-      if (notificationError) {
-        console.error("Failed to create update notification:", notificationError);
-      } else {
-        console.log("Update notification created for existing patient");
       }
     }
 
@@ -212,7 +163,7 @@ export const createPatient = async (params: CreatePatientParams): Promise<Patien
   }
 };
 
-// New function to check if an email exists in the patients table
+// Function to check if an email exists in the patients table
 export const checkPatientEmail = async (email: string): Promise<boolean> => {
   try {
     const { data, error } = await supabase
