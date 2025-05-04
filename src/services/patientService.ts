@@ -105,29 +105,46 @@ export const createPatient = async (params: CreatePatientParams): Promise<Patien
         }
       }
     } else {
-      // Even if no X-rays, create a default case/report for the patient
-      console.log("Creating default case report for patient:", patientId);
-      const { error: defaultReportError } = await supabase
-        .from("reports")
+      // For patients without X-rays, we need to create a scan first
+      // before we can create a report (due to the foreign key constraint)
+      console.log("No X-rays provided, creating a placeholder scan and report");
+      
+      // Create a placeholder scan
+      const { data: placeholderScan, error: scanError } = await supabase
+        .from("scans")
         .insert({
           patient_id: patientId,
-          // Use null for scan_id as there's no scan yet
-          scan_id: null, 
-          content: `Initial case opened for ${params.name}. No scans uploaded yet.`,
-          status: 'pending',
-          hospital_name: 'Radixpert Medical Center'
-        });
-        
-      if (defaultReportError) {
-        // If the error is due to scan_id being non-nullable, we handle it
-        if (defaultReportError.message.includes('null value in column "scan_id"')) {
-          console.warn("Could not create default report without scan_id - this is expected if scan_id is non-nullable");
-        } else {
-          console.error("Error creating default report:", defaultReportError);
-          throw defaultReportError;
+          doctor_id: params.doctorId,
+          file_path: "placeholder.jpg", // Placeholder file path
+          file_type: "placeholder"      // Placeholder file type
+        })
+        .select();
+      
+      if (scanError) {
+        console.error("Error creating placeholder scan:", scanError);
+        throw scanError;
+      }
+      
+      console.log("Placeholder scan created:", placeholderScan);
+      
+      // Now create the report with the scan_id from the placeholder scan
+      if (placeholderScan && placeholderScan.length > 0) {
+        const scanId = placeholderScan[0].id;
+        const { error: reportError } = await supabase
+          .from("reports")
+          .insert({
+            patient_id: patientId,
+            scan_id: scanId,
+            content: `Initial case opened for ${params.name}. No scans uploaded yet.`,
+            status: 'pending',
+            hospital_name: 'Radixpert Medical Center'
+          });
+          
+        if (reportError) {
+          console.error("Error creating default report:", reportError);
+          throw reportError;
         }
-      } else {
-        console.log("Default case report created for patient");
+        console.log("Default report created with placeholder scan");
       }
     }
 
