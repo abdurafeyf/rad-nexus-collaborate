@@ -8,6 +8,7 @@ export interface CreatePatientParams {
   gender?: 'male' | 'female' | 'other' | '';
   notes?: string;
   doctorId: string;
+  xrays?: { date: Date; scanType: string }[]; // Added xrays property to fix type error
 }
 
 export interface PatientCreationResult {

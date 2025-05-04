@@ -64,15 +64,35 @@ const ScanUploader: React.FC<ScanUploaderProps> = ({ patientId, patientName, doc
       const fileExt = file.name.split('.').pop();
       const fileName = `${patientId}/${fileId}.${fileExt}`;
       
+      // Define a progress handler function
+      const handleProgress = (progress: { loaded: number; total: number }) => {
+        const percent = Math.floor((progress.loaded / progress.total) * 100);
+        updateFileStatus(fileId, { progress: percent });
+      };
+      
       // Upload to Supabase Storage
+      // Using a separate options object to avoid TypeScript error with onUploadProgress
+      const uploadOptions = {
+        cacheControl: '3600',
+      };
+      
+      // Manually track progress with XHR
+      const xhr = new XMLHttpRequest();
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      // Setup progress tracking
+      xhr.upload.addEventListener('progress', (event) => {
+        if (event.lengthComputable) {
+          const percent = Math.floor((event.loaded / event.total) * 100);
+          updateFileStatus(fileId, { progress: percent });
+        }
+      });
+      
+      // Upload with standard method without progress tracking
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from("scans")
-        .upload(fileName, file, {
-          onUploadProgress: (progress) => {
-            const percent = Math.floor((progress.loaded / progress.total) * 100);
-            updateFileStatus(fileId, { progress: percent });
-          }
-        });
+        .upload(fileName, file, uploadOptions);
       
       if (uploadError) throw uploadError;
       
@@ -111,11 +131,22 @@ const ScanUploader: React.FC<ScanUploaderProps> = ({ patientId, patientName, doc
       
       // 3. Call OpenAI Vision API to generate report (only for image types)
       if (file.type.includes('image')) {
+        // Get the session data
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) throw sessionError;
+        
+        const accessToken = sessionData?.session?.access_token;
+        
+        if (!accessToken) {
+          throw new Error("Authentication required to generate reports.");
+        }
+        
         const generateReportResponse = await fetch(`https://ruueewpswsmmagpsxbvk.supabase.co/functions/v1/generate-report`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${supabase.auth.session()?.access_token}`
+            'Authorization': `Bearer ${accessToken}`
           },
           body: JSON.stringify({
             imageUrl: publicUrl,
