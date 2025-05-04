@@ -117,7 +117,7 @@ export const hasAnyDoctors = async (): Promise<boolean> => {
 // Helper function to delete a patient and all associated records
 export const deletePatient = async (patientId: string): Promise<{ success: boolean; error?: string }> => {
   try {
-    // With our new cascading constraints, we can simply delete the patient
+    // With our cascading constraints, we can simply delete the patient
     // and all related records will be automatically deleted
     const { error } = await supabase
       .from("patients")

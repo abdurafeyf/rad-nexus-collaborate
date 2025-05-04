@@ -7,6 +7,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const OPENAI_API_KEY = "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";
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -14,11 +16,10 @@ serve(async (req) => {
   }
 
   try {
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-    
-    if (!openAIApiKey) {
+    // Use the hardcoded API key instead of getting from environment variable
+    if (!OPENAI_API_KEY) {
       console.error("Missing OpenAI API key");
-      throw new Error("Missing OpenAI API key. Please set the OPENAI_API_KEY environment variable.");
+      throw new Error("Missing OpenAI API key.");
     }
     
     // Get request body
@@ -65,7 +66,7 @@ serve(async (req) => {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
