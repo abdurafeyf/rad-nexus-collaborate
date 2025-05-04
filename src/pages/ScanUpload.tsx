@@ -186,6 +186,9 @@ const ScanUpload = () => {
         throw new Error("You must be logged in to upload scans.");
       }
       
+      // Declare doctorId here once, and assign it later
+      let doctorId: string;
+      
       const { data: doctorData, error: doctorError } = await supabase
         .from("doctors")
         .select("id")
@@ -199,13 +202,13 @@ const ScanUpload = () => {
         
         if (!email) throw new Error("Unable to retrieve user email.");
         
-        // Generate a UUID for the doctor ID - this is the key fix
-        const doctorId = crypto.randomUUID();
+        // Generate a UUID for the doctor ID
+        const newDoctorId = crypto.randomUUID();
         
         const { data: newDoctorData, error: newDoctorError } = await supabase
           .from("doctors")
           .insert({
-            id: doctorId, // Add the required id field
+            id: newDoctorId,
             user_id: userId,
             email: email,
             first_name: "Doctor",
@@ -217,9 +220,9 @@ const ScanUpload = () => {
           
         if (newDoctorError) throw new Error("Failed to create doctor record: " + newDoctorError.message);
         
-        var doctorId = newDoctorData.id;
+        doctorId = newDoctorData.id;
       } else {
-        var doctorId = doctorData.id;
+        doctorId = doctorData.id;
       }
       
       const finalScanType = scanType === "other" ? otherScanType : 
