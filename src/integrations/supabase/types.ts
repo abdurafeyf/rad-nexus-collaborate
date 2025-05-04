@@ -194,39 +194,54 @@ export type Database = {
           date_of_birth: string | null
           doctor_id: string | null
           email: string
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
           gender: string | null
           id: string
           is_typing: boolean | null
           last_visit: string
           name: string
           notes: string | null
+          phone_number: string | null
           status: string
+          updated_at: string | null
+          updated_by: string | null
         }
         Insert: {
           created_at?: string
           date_of_birth?: string | null
           doctor_id?: string | null
           email: string
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
           gender?: string | null
           id?: string
           is_typing?: boolean | null
           last_visit?: string
           name: string
           notes?: string | null
+          phone_number?: string | null
           status?: string
+          updated_at?: string | null
+          updated_by?: string | null
         }
         Update: {
           created_at?: string
           date_of_birth?: string | null
           doctor_id?: string | null
           email?: string
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
           gender?: string | null
           id?: string
           is_typing?: boolean | null
           last_visit?: string
           name?: string
           notes?: string | null
+          phone_number?: string | null
           status?: string
+          updated_at?: string | null
+          updated_by?: string | null
         }
         Relationships: [
           {
@@ -289,6 +304,50 @@ export type Database = {
           },
         ]
       }
+      scan_records: {
+        Row: {
+          created_at: string | null
+          date_taken: string
+          file_url: string | null
+          id: string
+          notes: string | null
+          patient_id: string
+          scan_type: string
+          uploaded_by: string | null
+          visibility: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          date_taken: string
+          file_url?: string | null
+          id?: string
+          notes?: string | null
+          patient_id: string
+          scan_type: string
+          uploaded_by?: string | null
+          visibility?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          date_taken?: string
+          file_url?: string | null
+          id?: string
+          notes?: string | null
+          patient_id?: string
+          scan_type?: string
+          uploaded_by?: string | null
+          visibility?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scan_records_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scans: {
         Row: {
           doctor_id: string
@@ -337,24 +396,33 @@ export type Database = {
           date: string
           file_path: string | null
           id: string
+          notes: string | null
           patient_id: string
           scan_type: string | null
+          uploaded_by: string | null
+          visibility: string | null
         }
         Insert: {
           created_at?: string
           date: string
           file_path?: string | null
           id?: string
+          notes?: string | null
           patient_id: string
           scan_type?: string | null
+          uploaded_by?: string | null
+          visibility?: string | null
         }
         Update: {
           created_at?: string
           date?: string
           file_path?: string | null
           id?: string
+          notes?: string | null
           patient_id?: string
           scan_type?: string | null
+          uploaded_by?: string | null
+          visibility?: string | null
         }
         Relationships: [
           {

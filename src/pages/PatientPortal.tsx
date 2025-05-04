@@ -14,7 +14,6 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import NotificationsPanel from "@/components/patient/NotificationsPanel";
 import PatientProfilePanel from "@/components/patient/PatientProfilePanel";
 import QuickActionsPanel from "@/components/patient/QuickActionsPanel";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useQuery } from "@tanstack/react-query";
 
 type CaseWithReport = {
@@ -52,12 +51,6 @@ const PatientPortal = () => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [stats, setStats] = useState({
-    totalCases: 0,
-    unreadMessages: 0,
-    pendingForms: 0
-  });
   
   // Function to get friendly status badge color
   const getStatusColor = (status: string) => {
@@ -165,9 +158,6 @@ const PatientPortal = () => {
       
       console.log("Notifications fetched:", data?.length || 0);
       
-      // Set notifications state
-      setNotifications(data || []);
-      
       // Calculate unread count
       const unreadNotifications = data?.filter(n => !n.read) || [];
       setUnreadCount(unreadNotifications.length);
@@ -196,46 +186,45 @@ const PatientPortal = () => {
   });
 
   // Format cases data when reports are available
-  const cases: CaseWithReport[] = reports?.map((report) => {
-    const reportDate = report.published_at || report.created_at;
-    const title = `Radiology Report - ${format(parseISO(reportDate), "MMM d, yyyy")}`;
+  const cases: CaseWithReport[] = React.useMemo(() => {
+    if (!reports) return [];
     
-    // Get doctor name if available
-    let doctorName = "Unknown Doctor";
-    if (report.scans && report.scans.doctors && typeof report.scans.doctors === 'object') {
-      const doctorData = report.scans.doctors as DoctorData;
-      if (doctorData.first_name && doctorData.last_name) {
-        doctorName = `Dr. ${doctorData.first_name} ${doctorData.last_name}`;
-      }
-    }
-    
-    return {
-      id: `case-${report.id}`,
-      report_id: report.id,
-      hospital_name: report.hospital_name || "General Hospital",
-      doctor_name: doctorName,
-      title: title,
-      date: reportDate,
-      status: report.status,
-      scan_id: report.scan_id,
-      patient_id: report.patient_id
-    };
-  }) || [];
-
-  // Update stats when data is available
-  useEffect(() => {
-    if (cases && notificationsData && messagesData) {
-      const unreadNotifications = notificationsData?.filter(n => !n.read) || [];
-      const pendingForms = unreadNotifications.filter(
-        n => n.title.includes("consent") || n.message.includes("consent")
-      ).length;
+    return reports.map((report) => {
+      const reportDate = report.published_at || report.created_at;
+      const title = `Radiology Report - ${format(parseISO(reportDate), "MMM d, yyyy")}`;
       
-      setStats({
-        totalCases: cases.length,
-        unreadMessages: messagesData.length || 0,
-        pendingForms: pendingForms
-      });
-    }
+      // Get doctor name if available
+      let doctorName = "Unknown Doctor";
+      if (report.scans && report.scans.doctors && typeof report.scans.doctors === 'object') {
+        const doctorData = report.scans.doctors as DoctorData;
+        if (doctorData.first_name && doctorData.last_name) {
+          doctorName = `Dr. ${doctorData.first_name} ${doctorData.last_name}`;
+        }
+      }
+      
+      return {
+        id: `case-${report.id}`,
+        report_id: report.id,
+        hospital_name: report.hospital_name || "General Hospital",
+        doctor_name: doctorName,
+        title: title,
+        date: reportDate,
+        status: report.status,
+        scan_id: report.scan_id,
+        patient_id: report.patient_id
+      };
+    });
+  }, [reports]);
+
+  // Calculate stats from loaded data
+  const stats = React.useMemo(() => {
+    return {
+      totalCases: cases.length,
+      unreadMessages: messagesData?.length || 0,
+      pendingForms: notificationsData?.filter(
+        n => !n.read && (n.title.includes("consent") || n.message.includes("consent"))
+      ).length || 0
+    };
   }, [cases, notificationsData, messagesData]);
 
   // Handle errors
@@ -280,6 +269,15 @@ const PatientPortal = () => {
   // Check if all critical data is still loading
   const isLoading = isLoadingUser || isLoadingPatient || isLoadingReports;
 
+  // Determine if there's any urgent notification that should be shown as an alert
+  const urgentNotifications = React.useMemo(() => {
+    if (!notificationsData) return [];
+    
+    return notificationsData.filter(
+      (n) => !n.read && (n.title.includes("ready") || n.title.includes("consent") || n.message.includes("consent"))
+    );
+  }, [notificationsData]);
+
   if (isLoading) {
     return (
       <NewSidebar type="patient">
@@ -291,11 +289,6 @@ const PatientPortal = () => {
       </NewSidebar>
     );
   }
-
-  // Determine if there's any urgent notification that should be shown as an alert
-  const urgentNotifications = notifications.filter(
-    (n) => !n.read && (n.title.includes("ready") || n.title.includes("consent") || n.message.includes("consent"))
-  );
 
   return (
     <NewSidebar type="patient">
