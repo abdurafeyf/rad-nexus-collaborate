@@ -23,12 +23,15 @@ export interface PatientCreationResult {
 
 export const createPatient = async (params: CreatePatientParams): Promise<PatientCreationResult> => {
   try {
+    console.log("Creating/updating patient with params:", params);
     // Check if patient already exists
     const { data: existingPatient, error: checkError } = await supabase
       .from("patients")
       .select("id")
       .eq("email", params.email)
       .maybeSingle();
+
+    console.log("Existing patient check:", existingPatient, checkError);
 
     let patientId;
     let isNewPatient = !existingPatient;
@@ -49,29 +52,82 @@ export const createPatient = async (params: CreatePatientParams): Promise<Patien
         .single();
 
       if (patientError) {
+        console.error("Error creating patient:", patientError);
         throw patientError;
       }
 
+      console.log("New patient created:", patient);
       patientId = patient.id;
     } else {
       patientId = existingPatient.id;
+      console.log("Using existing patient ID:", patientId);
     }
 
     // Handle X-rays if any
     if (params.xrays && params.xrays.length > 0) {
+      console.log("Processing X-rays for patient:", patientId);
       for (const xray of params.xrays) {
         // Insert X-ray record
-        const { error: xrayError } = await supabase
+        const { error: xrayError, data: xrayData } = await supabase
           .from("x_rays")
           .insert({
             patient_id: patientId,
             date: xray.date.toISOString().split("T")[0],
             scan_type: xray.scanType
-          });
+          })
+          .select();
 
         if (xrayError) {
+          console.error("Error creating x-ray record:", xrayError);
           throw xrayError;
         }
+        
+        console.log("X-ray record created:", xrayData);
+        
+        // Create a corresponding report entry for each X-ray
+        if (xrayData && xrayData.length > 0) {
+          const xrayId = xrayData[0].id;
+          const { error: reportError } = await supabase
+            .from("reports")
+            .insert({
+              patient_id: patientId,
+              scan_id: xrayId,
+              content: `Initial assessment for ${params.name}'s ${xray.scanType} scan from ${xray.date.toLocaleDateString()}.`,
+              status: 'pending',
+              hospital_name: 'Radixpert Medical Center'
+            });
+            
+          if (reportError) {
+            console.error("Error creating report for x-ray:", reportError);
+            throw reportError;
+          }
+          console.log("Report created for x-ray:", xrayId);
+        }
+      }
+    } else {
+      // Even if no X-rays, create a default case/report for the patient
+      console.log("Creating default case report for patient:", patientId);
+      const { error: defaultReportError } = await supabase
+        .from("reports")
+        .insert({
+          patient_id: patientId,
+          // Use null for scan_id as there's no scan yet
+          scan_id: null, 
+          content: `Initial case opened for ${params.name}. No scans uploaded yet.`,
+          status: 'pending',
+          hospital_name: 'Radixpert Medical Center'
+        });
+        
+      if (defaultReportError) {
+        // If the error is due to scan_id being non-nullable, we handle it
+        if (defaultReportError.message.includes('null value in column "scan_id"')) {
+          console.warn("Could not create default report without scan_id - this is expected if scan_id is non-nullable");
+        } else {
+          console.error("Error creating default report:", defaultReportError);
+          throw defaultReportError;
+        }
+      } else {
+        console.log("Default case report created for patient");
       }
     }
 
@@ -82,11 +138,13 @@ export const createPatient = async (params: CreatePatientParams): Promise<Patien
         .insert({
           patient_id: patientId,
           title: "Welcome to Radixpert",
-          message: "Your doctor has added you to d. Please sign up using your email address to access your medical records and reports.",
+          message: "Your doctor has added you to Radixpert. Please sign up using your email address to access your medical records and reports.",
         });
 
       if (notificationError) {
         console.error("Failed to create welcome notification:", notificationError);
+      } else {
+        console.log("Welcome notification created for new patient");
       }
     } else {
       // Create notification for existing patients
@@ -100,6 +158,8 @@ export const createPatient = async (params: CreatePatientParams): Promise<Patien
 
       if (notificationError) {
         console.error("Failed to create update notification:", notificationError);
+      } else {
+        console.log("Update notification created for existing patient");
       }
     }
 
