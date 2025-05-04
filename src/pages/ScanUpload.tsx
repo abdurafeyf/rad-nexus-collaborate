@@ -199,9 +199,13 @@ const ScanUpload = () => {
         
         if (!email) throw new Error("Unable to retrieve user email.");
         
+        // Generate a UUID for the doctor ID - this is the key fix
+        const doctorId = crypto.randomUUID();
+        
         const { data: newDoctorData, error: newDoctorError } = await supabase
           .from("doctors")
           .insert({
+            id: doctorId, // Add the required id field
             user_id: userId,
             email: email,
             first_name: "Doctor",
