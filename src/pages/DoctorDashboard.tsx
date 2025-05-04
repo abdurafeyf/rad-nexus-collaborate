@@ -154,7 +154,7 @@ const DoctorDashboard = () => {
   // Handle patient deletion
   const handleDeletePatient = async (id: string) => {
     try {
-      // First check if patient has any scan records
+      // Check if patient has any scan records
       const { data: scanRecords, error: scanError } = await supabase
         .from("scan_records")
         .select("id")
@@ -185,13 +185,43 @@ const DoctorDashboard = () => {
   const deletePatientRecord = async (id: string, deleteHistory: boolean = false) => {
     try {
       if (deleteHistory) {
-        // Delete scan records
+        // Step 1: Delete reports first (they reference scan_records)
+        const { error: reportError } = await supabase
+          .from("reports")
+          .delete()
+          .eq("patient_id", id);
+
+        if (reportError) throw reportError;
+        
+        // Step 2: Delete scan records
         const { error: scanError } = await supabase
           .from("scan_records")
           .delete()
           .eq("patient_id", id);
 
         if (scanError) throw scanError;
+      } else {
+        // If we're not deleting history, we need to handle potential foreign key constraints
+        // First, get all scan record IDs for this patient
+        const { data: scanRecords, error: scanQueryError } = await supabase
+          .from("scan_records")
+          .select("id")
+          .eq("patient_id", id);
+          
+        if (scanQueryError) throw scanQueryError;
+        
+        // If there are scan records with reports, set the reports' scan_record_id to null
+        if (scanRecords && scanRecords.length > 0) {
+          const scanIds = scanRecords.map(sr => sr.id);
+          
+          // Update reports to remove references to scan records
+          const { error: reportsUpdateError } = await supabase
+            .from("reports")
+            .update({ scan_record_id: null })
+            .in("scan_record_id", scanIds);
+            
+          if (reportsUpdateError) throw reportsUpdateError;
+        }
       }
 
       // Finally delete the patient record
