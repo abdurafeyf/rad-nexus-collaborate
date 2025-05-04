@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
@@ -44,6 +43,14 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import NewSidebar from "@/components/NewSidebar";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 // Define the patient type based on the database schema
 type Patient = {
@@ -81,6 +88,9 @@ const DoctorDashboard = () => {
   }>({ key: "last_visit", direction: "desc" });
   const [currentDoctor, setCurrentDoctor] = useState<Doctor | null>(null);
   const [hoveredRow, setHoveredRow] = useState<string | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [patientToDelete, setPatientToDelete] = useState<string | null>(null);
+  const [deleteWithHistory, setDeleteWithHistory] = useState(false);
 
   // First fetch the current doctor's info
   useEffect(() => {
@@ -144,20 +154,84 @@ const DoctorDashboard = () => {
   // Handle patient deletion
   const handleDeletePatient = async (id: string) => {
     try {
+      // First check if patient has any scan records
+      const { data: scanRecords, error: scanError } = await supabase
+        .from("scan_records")
+        .select("id")
+        .eq("patient_id", id);
+
+      if (scanError) throw scanError;
+
+      const { data: scans, error: scansError } = await supabase
+        .from("scans")
+        .select("id")
+        .eq("patient_id", id);
+
+      if (scansError) throw scansError;
+
+      const hasScanRecords = (scanRecords?.length || 0) > 0 || (scans?.length || 0) > 0;
+
+      if (hasScanRecords) {
+        // Show confirmation dialog
+        setPatientToDelete(id);
+        setShowDeleteDialog(true);
+        return;
+      }
+
+      // If no scan records, proceed with simple deletion
+      await deletePatientRecord(id);
+    } catch (error: any) {
+      toast({
+        title: "Error checking patient records",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const deletePatientRecord = async (id: string, deleteHistory: boolean = false) => {
+    try {
+      if (deleteHistory) {
+        // Delete scan records first
+        const { error: scanError } = await supabase
+          .from("scan_records")
+          .delete()
+          .eq("patient_id", id);
+
+        if (scanError) throw scanError;
+
+        // Delete scans
+        const { error: scansError } = await supabase
+          .from("scans")
+          .delete()
+          .eq("patient_id", id);
+
+        if (scansError) throw scansError;
+
+        // Delete x-rays
+        const { error: xraysError } = await supabase
+          .from("x_rays")
+          .delete()
+          .eq("patient_id", id);
+
+        if (xraysError) throw xraysError;
+      }
+
+      // Finally delete the patient record
       const { error } = await supabase
         .from("patients")
         .delete()
         .eq("id", id);
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       setPatients((prev) => prev.filter((patient) => patient.id !== id));
       
       toast({
         title: "Patient deleted",
-        description: "Patient has been successfully deleted.",
+        description: deleteHistory 
+          ? "Patient and all associated records have been deleted."
+          : "Patient has been deleted. Scan records have been preserved.",
       });
     } catch (error: any) {
       toast({
@@ -494,6 +568,71 @@ const DoctorDashboard = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Patient</DialogTitle>
+              <DialogDescription>
+                This patient has scan records associated with their account. Would you like to:
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="radio"
+                  id="keepHistory"
+                  name="deleteOption"
+                  checked={!deleteWithHistory}
+                  onChange={() => setDeleteWithHistory(false)}
+                  className="h-4 w-4 text-teal-600"
+                />
+                <label htmlFor="keepHistory" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                  Delete patient only (keep scan records)
+                </label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="radio"
+                  id="deleteHistory"
+                  name="deleteOption"
+                  checked={deleteWithHistory}
+                  onChange={() => setDeleteWithHistory(true)}
+                  className="h-4 w-4 text-teal-600"
+                />
+                <label htmlFor="deleteHistory" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                  Delete patient and all scan records
+                </label>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowDeleteDialog(false);
+                  setPatientToDelete(null);
+                  setDeleteWithHistory(false);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  if (patientToDelete) {
+                    deletePatientRecord(patientToDelete, deleteWithHistory);
+                  }
+                  setShowDeleteDialog(false);
+                  setPatientToDelete(null);
+                  setDeleteWithHistory(false);
+                }}
+              >
+                Delete
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </NewSidebar>
   );
