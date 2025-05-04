@@ -194,7 +194,7 @@ const NewSidebar: React.FC<NewSidebarProps> = ({ type, children, className }) =>
                 R
               </div>
               <span className="text-xl font-semibold text-gray-800">
-                RaDixpert
+                Radixpert
               </span>
             </Link>
           )}
@@ -240,7 +240,7 @@ const NewSidebar: React.FC<NewSidebarProps> = ({ type, children, className }) =>
                   R
                 </div>
                 <span className="text-xl font-semibold text-gray-800">
-                  RaDixpert
+                  Radixpert
                 </span>
               </Link>
               <Button variant="ghost" size="icon" onClick={() => setIsMobileOpen(false)}>

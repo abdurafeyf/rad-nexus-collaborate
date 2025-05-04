@@ -17,7 +17,7 @@ const NavBar: React.FC = () => {
           <div className="h-8 w-8 rounded-full bg-gradient-to-r from-brand-600 to-brand-400 flex items-center justify-center text-white font-bold text-sm">
             R
           </div>
-          <span className="text-xl font-semibold text-brand-900">RaDixpert</span>
+          <span className="text-xl font-semibold text-brand-900">Radixpert</span>
         </Link>
 
         {isMobile ? (

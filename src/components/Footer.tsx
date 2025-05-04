@@ -10,7 +10,7 @@ const Footer: React.FC = () => {
           <div className="col-span-2 lg:col-span-2">
             <Link to="/" className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-full bg-brand-700"></div>
-              <span className="text-xl font-semibold text-brand-900">RadNexus</span>
+              <span className="text-xl font-semibold text-brand-900">Radixpert</span>
             </Link>
             <p className="mt-4 max-w-md text-sm text-gray-600">
               Transforming radiology collaboration through secure, intelligent, and
@@ -84,7 +84,7 @@ const Footer: React.FC = () => {
 
         <div className="mt-12 border-t border-gray-100 pt-6">
           <p className="text-center text-sm text-gray-500">
-            © {new Date().getFullYear()} RadNexus. All rights reserved.
+            © {new Date().getFullYear()} Radixpert. All rights reserved.
           </p>
         </div>
       </div>

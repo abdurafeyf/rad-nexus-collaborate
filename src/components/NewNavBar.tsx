@@ -54,7 +54,7 @@ const NewNavBar: React.FC = () => {
               "text-xl font-semibold transition-colors",
               isScrolled ? "text-gray-800" : "text-white"
             )}>
-              RaDixpert
+              Radixpert
             </span>
           </Link>
 

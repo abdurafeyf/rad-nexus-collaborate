@@ -81,8 +81,8 @@ export const createPatient = async (params: CreatePatientParams): Promise<Patien
         .from("notifications")
         .insert({
           patient_id: patientId,
-          title: "Welcome to RaDixpert",
-          message: "Your doctor has added you to RaDixpert. Please sign up using your email address to access your medical records and reports.",
+          title: "Welcome to Radixpert",
+          message: "Your doctor has added you to d. Please sign up using your email address to access your medical records and reports.",
         });
 
       if (notificationError) {

@@ -94,7 +94,7 @@ const Index = () => {
           </h2>
           <div className="mx-auto h-1 w-20 rounded bg-teal-500 mb-6"></div>
           <p className="mx-auto mb-12 max-w-2xl text-center text-gray-600">
-            RaDixpert provides specialized tools for healthcare organizations, doctors, and patients.
+            Radixpert provides specialized tools for healthcare organizations, doctors, and patients.
           </p>
 
           <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
@@ -223,7 +223,7 @@ const Index = () => {
               Ready to Transform Your Radiology Workflow?
             </h2>
             <p className="mb-8 text-lg opacity-90">
-              Join healthcare organizations across the country that are improving patient outcomes with RaDixpert.
+              Join healthcare organizations across the country that are improving patient outcomes with Radixpert.
             </p>
             <div className="flex flex-wrap justify-center gap-4">
               <Link to="/register/organization">

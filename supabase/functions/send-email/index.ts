@@ -1,3 +1,4 @@
+/// @deno-types="https://deno.land/x/deno@v1.36.0/types/lib.deno.ns.d.ts"
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "npm:resend@2.0.0";
@@ -26,7 +27,7 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { to, subject, html, from = "RaDixpert <no-reply@radixpert.com>" } = await req.json() as EmailRequest;
+    const { to, subject, html, from = "Radixpert <no-reply@radixpert.com>" } = await req.json() as EmailRequest;
 
     if (!to || !subject || !html) {
       throw new Error("Missing required fields: to, subject, or html");

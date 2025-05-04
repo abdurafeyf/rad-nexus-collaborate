@@ -114,7 +114,7 @@ const Login = () => {
       default:
         return {
           title: "Login",
-          description: "Access your RaDixpert account.",
+          description: "Access your Radixpert account.",
           icon: <User className="h-6 w-6 text-brand-600" />
         };
     }
