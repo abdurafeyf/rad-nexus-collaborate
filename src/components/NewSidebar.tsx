@@ -11,7 +11,8 @@ import {
   Calendar, 
   Settings,
   Menu,
-  LogOut
+  LogOut,
+  Bot
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -94,6 +95,7 @@ const NewSidebar: React.FC<NewSidebarProps> = ({ type, children, className }) =>
     ? [
         { to: "/doctor/dashboard", icon: <User />, label: "Patients" },
         { to: "/doctor/messages", icon: <MessageSquare />, label: "Messages" },
+        { to: "/doctor/ai-assistant", icon: <Bot />, label: "AI Assistant" },
         { to: "/doctor/reports", icon: <FileText />, label: "Reports" },
         { to: "/doctor/appointments", icon: <Calendar />, label: "Appointments" },
         { to: "/doctor/settings", icon: <Settings />, label: "Settings" },
@@ -101,6 +103,7 @@ const NewSidebar: React.FC<NewSidebarProps> = ({ type, children, className }) =>
     : [
         { to: "/patient/portal", icon: <User />, label: "My Records" },
         { to: "/patient/messages", icon: <MessageSquare />, label: "Messages" },
+        { to: "/patient/ai-assistant", icon: <Bot />, label: "AI Assistant" },
         { to: "/patient/reports", icon: <FileText />, label: "Reports" },
         { to: "/patient/appointments", icon: <Calendar />, label: "Appointments" },
         { to: "/patient/settings", icon: <Settings />, label: "Settings" },
