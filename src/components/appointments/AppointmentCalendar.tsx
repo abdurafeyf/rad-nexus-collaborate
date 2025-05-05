@@ -52,15 +52,14 @@ const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
           className="rounded-md border pointer-events-auto"
           disabled={{ before: new Date() }}
           modifiers={{
-            available: availableDays
+            available: availableDays,
+            today: [new Date()]
           }}
           modifiersStyles={{
-            available: { fontWeight: "bold", backgroundColor: "hsl(var(--muted))" }
-          }}
-          styles={{
+            available: { fontWeight: "bold", backgroundColor: "hsl(var(--muted))" },
             today: { 
               fontWeight: highlightToday ? "bold" : "normal",
-              backgroundColor: highlightToday ? "hsl(var(--accent))" : ""
+              backgroundColor: highlightToday ? "hsl(var(--accent))" : undefined
             }
           }}
         />
