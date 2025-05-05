@@ -100,21 +100,31 @@
     @apply ring-2 ring-accent/30 border-accent;
     transition: all 0.2s ease;
   }
+  
+  /* Improved headings */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-medium tracking-tight;
+  }
+  
+  /* Link styles */
+  a {
+    @apply transition-colors duration-200;
+  }
 }
 
 @layer components {
   /* Card hover effect */
   .hover-card {
-    @apply transition-all duration-200;
+    @apply transition-all duration-300;
   }
   
   .hover-card:hover {
-    @apply shadow-md -translate-y-0.5;
+    @apply shadow-md -translate-y-1;
   }
   
   /* Button hover effect */
   .btn-hover {
-    @apply transition-all duration-200;
+    @apply transition-all duration-300;
   }
   
   .btn-hover:hover {
@@ -128,6 +138,29 @@
   
   .section {
     @apply bg-white py-24;
+  }
+  
+  /* Glassmorphism styles */
+  .glass {
+    @apply bg-white/10 backdrop-blur-md border border-white/20;
+  }
+  
+  .glass-card {
+    @apply glass rounded-xl shadow-lg;
+  }
+  
+  /* Notion-style block */
+  .notion-block {
+    @apply border border-gray-200 rounded-lg p-4 bg-white hover:shadow-sm transition-all;
+  }
+  
+  .notion-block-draggable {
+    @apply notion-block relative;
+  }
+  
+  .notion-block-draggable::after {
+    content: "";
+    @apply absolute top-2 right-2 h-1.5 w-1.5 rounded-full bg-gray-300;
   }
 }
 
@@ -143,6 +176,10 @@
   .bg-gradient-coral {
     @apply bg-gradient-to-r from-coral-500 to-coral-400;
   }
+
+  .bg-gradient-purple {
+    @apply bg-gradient-to-r from-purple-500 to-indigo-500;
+  }
   
   /* Subtle shadows for depth */
   .shadow-subtle {
@@ -157,4 +194,23 @@
   .btn-pill {
     @apply rounded-full px-6 py-3;
   }
+  
+  /* Animation utilities */
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+  
+  .animate-pulse-slow {
+    animation: pulse-slow 3s ease-in-out infinite;
+  }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
 }

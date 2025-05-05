@@ -76,7 +76,7 @@ export default {
 					900: '#00436f',
 					950: '#002b49'
 				},
-				// New accent colors
+				// Accent colors
 				teal: {
 					50: '#effefa',
 					100: '#c7fef2',
@@ -102,6 +102,19 @@ export default {
 					800: '#a41a0c',
 					900: '#881c10',
 					950: '#4b0a04',
+				},
+				purple: {
+					50: '#f5f3ff',
+					100: '#ede9fe',
+					200: '#ddd6fe',
+					300: '#c4b5fd',
+					400: '#a78bfa',
+					500: '#8b5cf6',
+					600: '#7c3aed',
+					700: '#6d28d9',
+					800: '#5b21b6',
+					900: '#4c1d95',
+					950: '#2e1065',
 				},
 				rad: {
 					light: '#f5f5f7',
@@ -145,6 +158,9 @@ export default {
 				'accordion-up': 'accordion-up 0.2s ease-out',
 				'float': 'float 6s ease-in-out infinite',
 				'pulse-slow': 'pulse-slow 3s ease-in-out infinite'
+			},
+			fontFamily: {
+				sans: ['Inter', 'system-ui', 'sans-serif'],
 			}
 		}
 	},
