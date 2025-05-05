@@ -111,11 +111,12 @@ const AiChatBox: React.FC<AiChatBoxProps> = ({ className }) => {
                   <div
                     key={index}
                     className={cn(
-                      isUser ? "ml-auto" : "mr-auto",
-                      "max-w-[80%]"
+                      "flex",
+                      isUser ? "justify-end" : "justify-start"
                     )}
                   >
-                    <div className="flex items-start gap-3">
+                    <div className="flex items-start gap-3 max-w-[80%]">
+                      {/* Avatar */}
                       <div 
                         className={cn(
                           "flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center",
@@ -124,7 +125,8 @@ const AiChatBox: React.FC<AiChatBoxProps> = ({ className }) => {
                       >
                         {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
                       </div>
-                      
+
+                      {/* Message Bubble */}
                       <div 
                         className={cn(
                           "rounded-lg px-4 py-3 text-sm",
