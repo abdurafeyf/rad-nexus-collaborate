@@ -40,10 +40,31 @@ export const useAiChat = () => {
       
       if (error) throw error;
       
+      // Format the AI response with consistent styling
+      let aiResponse = data.reply;
+      
+      // Add appropriate formatting for medical terms and lists if needed
+      if (aiResponse.includes("cardiomegaly") && !aiResponse.includes("**Cardiomegaly**")) {
+        aiResponse = aiResponse.replace(/cardiomegaly/gi, "**Cardiomegaly**");
+      }
+      
+      // Ensure lists have proper formatting
+      if (aiResponse.includes("factors") || aiResponse.includes("include")) {
+        const listPattern = /(can result from various factors, including:|can be caused by:|can include:)/i;
+        if (listPattern.test(aiResponse) && !aiResponse.includes("- ")) {
+          // Add bullet points for readability
+          aiResponse = aiResponse.replace(
+            /(can result from various factors, including:|can be caused by:|can include:)\s+([^-\n])/i, 
+            "$1\n\n- $2"
+          );
+          aiResponse = aiResponse.replace(/\.\s+([A-Z][^.\n]+?):\s+/g, ".\n\n- **$1**: ");
+        }
+      }
+      
       // Add AI response to chat
       const aiMessage: ChatMessage = {
         role: 'assistant',
-        content: data.reply,
+        content: aiResponse,
         timestamp: new Date().toISOString(),
       };
       

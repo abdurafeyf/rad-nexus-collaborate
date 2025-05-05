@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAiChat, ChatMessage } from "@/hooks/useAiChat";
 import { cn } from "@/lib/utils";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface AiChatBoxProps {
   className?: string;
@@ -36,13 +37,36 @@ const AiChatBox: React.FC<AiChatBoxProps> = ({ className }) => {
     }
   };
   
+  // Format message content with Markdown-like styling
   const renderMessageContent = (content: string) => {
-    return content.split("\n").map((line, i) => (
-      <React.Fragment key={i}>
-        {line}
-        {i < content.split("\n").length - 1 && <br />}
-      </React.Fragment>
-    ));
+    // Process bold text (wrapped in ** or __)
+    content = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/__(.*?)__/g, '<strong>$1</strong>');
+    
+    // Process bullet points
+    const bulletPointRegex = /- (.*?)($|\n)/g;
+    content = content.replace(bulletPointRegex, '<li>$1</li>');
+    
+    if (content.includes('<li>')) {
+      content = content.replace(/<li>/g, '<ul class="pl-4 list-disc"><li>');
+      content = content.replace(/<\/li>/g, '</li></ul>');
+      // Clean up nested lists
+      content = content.replace(/<\/ul><ul class="pl-4 list-disc">/g, '');
+    }
+
+    // Split by line breaks and wrap each paragraph
+    const paragraphs = content.split('\n\n').filter(Boolean);
+    
+    return (
+      <>
+        {paragraphs.map((paragraph, i) => (
+          <div 
+            key={i} 
+            className={i > 0 ? 'mt-2' : ''}
+            dangerouslySetInnerHTML={{ __html: paragraph }}
+          />
+        ))}
+      </>
+    );
   };
   
   return (
@@ -66,75 +90,81 @@ const AiChatBox: React.FC<AiChatBoxProps> = ({ className }) => {
         </div>
       </CardHeader>
       
-      <CardContent className="flex-grow overflow-y-auto p-4 space-y-4">
-        {messages.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center p-4">
-            <div className="bg-teal-50 rounded-full p-3 mb-4">
-              <Bot className="h-8 w-8 text-teal-500" />
+      <CardContent className="flex-grow p-0 overflow-hidden">
+        <ScrollArea className="h-full p-4">
+          {messages.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-center p-4">
+              <div className="bg-teal-50 rounded-full p-3 mb-4">
+                <Bot className="h-8 w-8 text-teal-500" />
+              </div>
+              <h3 className="text-lg font-medium mb-2">Welcome to RadiAI</h3>
+              <p className="text-gray-500 max-w-md">
+                I can answer questions about radiology procedures, imaging techniques, and medical terminology. How can I assist you today?
+              </p>
             </div>
-            <h3 className="text-lg font-medium mb-2">Welcome to RadiAI</h3>
-            <p className="text-gray-500 max-w-md">
-              I can answer questions about radiology procedures, imaging techniques, and medical terminology. How can I assist you today?
-            </p>
-          </div>
-        ) : (
-          messages.map((message, index) => {
-            const isUser = message.role === "user";
-            
-            return (
-              <div
-                key={index}
-                className={cn(
-                  "flex items-start gap-2 max-w-[85%]",
-                  isUser ? "ml-auto" : "mr-auto"
-                )}
-              >
-                <div 
-                  className={cn(
-                    "flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center",
-                    isUser ? "bg-coral-100 text-coral-600 order-2" : "bg-teal-100 text-teal-600"
-                  )}
-                >
-                  {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
-                </div>
+          ) : (
+            <div className="space-y-6 p-4">
+              {messages.map((message, index) => {
+                const isUser = message.role === "user";
                 
-                <div 
-                  className={cn(
-                    "rounded-lg px-4 py-2 text-sm",
-                    isUser ? "bg-coral-500 text-white" : "bg-gray-100 text-gray-800"
-                  )}
-                >
-                  {renderMessageContent(message.content)}
-                  {message.timestamp && (
-                    <div className={cn(
-                      "text-[10px] mt-1",
-                      isUser ? "text-coral-100" : "text-gray-400"
-                    )}>
-                      {format(new Date(message.timestamp), "h:mm a")}
+                return (
+                  <div
+                    key={index}
+                    className={cn(
+                      isUser ? "ml-auto" : "mr-auto",
+                      "max-w-[80%]"
+                    )}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div 
+                        className={cn(
+                          "flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center",
+                          isUser ? "bg-coral-100 text-coral-600 order-2" : "bg-teal-100 text-teal-600"
+                        )}
+                      >
+                        {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+                      </div>
+                      
+                      <div 
+                        className={cn(
+                          "rounded-lg px-4 py-3 text-sm",
+                          isUser ? "bg-coral-500 text-white order-1" : "bg-gray-100 text-gray-800"
+                        )}
+                      >
+                        {renderMessageContent(message.content)}
+                        {message.timestamp && (
+                          <div className={cn(
+                            "text-[10px] mt-2 text-right",
+                            isUser ? "text-coral-100" : "text-gray-400"
+                          )}>
+                            {format(new Date(message.timestamp), "h:mm a")}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  )}
+                  </div>
+                );
+              })}
+              
+              {isLoading && (
+                <div className="flex items-start gap-3 max-w-[80%]">
+                  <div className="flex-shrink-0 h-8 w-8 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center">
+                    <Bot className="h-4 w-4" />
+                  </div>
+                  <div className="bg-gray-100 rounded-lg px-4 py-3 text-gray-500">
+                    <div className="flex space-x-1">
+                      <div className="h-2 w-2 rounded-full bg-gray-400 animate-bounce"></div>
+                      <div className="h-2 w-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: "0.2s" }}></div>
+                      <div className="h-2 w-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: "0.4s" }}></div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            );
-          })
-        )}
-        
-        {isLoading && (
-          <div className="flex items-start gap-2 max-w-[85%] mr-auto">
-            <div className="flex-shrink-0 h-8 w-8 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center">
-              <Bot className="h-4 w-4" />
+              )}
+              
+              <div ref={messagesEndRef} />
             </div>
-            <div className="bg-gray-100 rounded-lg px-4 py-3 text-gray-500">
-              <div className="flex space-x-1">
-                <div className="h-2 w-2 rounded-full bg-gray-400 animate-bounce"></div>
-                <div className="h-2 w-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: "0.2s" }}></div>
-                <div className="h-2 w-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: "0.4s" }}></div>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        <div ref={messagesEndRef} />
+          )}
+        </ScrollArea>
       </CardContent>
       
       <CardFooter className="p-3 border-t">
