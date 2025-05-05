@@ -107,7 +107,7 @@ const NewNavBar: React.FC = () => {
                     "transition-all hover:scale-105 rounded-full",
                     isScrolled 
                       ? "border-teal-500 text-teal-600 hover:bg-teal-50 hover:text-teal-700" 
-                      : "border-white/70 text-white hover:bg-white/10 hover:border-white"
+                      : "border-white/70 text-white bg-white/10 hover:bg-white/10 hover:border-white"
                   )}
                 >
                   Login

@@ -118,7 +118,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
                     <Button 
                       variant="outline" 
                       size="lg" 
-                      className="border-white/70 text-white hover:bg-white/10 hover:border-white rounded-full px-8 py-6 text-base"
+                      className="border-white/70 text-gray-800 bg-white hover:bg-gray-100 hover:text-gray-900 rounded-full px-8 py-6 text-base"
                     >
                       {secondaryCTA.text}
                       {secondaryCTA.icon}
