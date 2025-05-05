@@ -16,7 +16,10 @@ import { useToast } from "@/components/ui/use-toast";
 import { Badge } from "@/components/ui/badge";
 
 const AppointmentsPage: React.FC = () => {
-  const { userType } = useParams<{ userType: string }>();
+  // Get userType from URL and normalize to lowercase
+  const params = useParams<{ userType: string }>();
+  const userType = params.userType?.toLowerCase() as 'doctor' | 'patient';
+  
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("upcoming");
   const [doctorId, setDoctorId] = useState<string | undefined>(undefined);
@@ -35,7 +38,7 @@ const AppointmentsPage: React.FC = () => {
     scheduleAppointment,
     updateAppointmentStatus,
     refreshAppointments
-  } = useAppointments(userType as 'doctor' | 'patient');
+  } = useAppointments(userType);
 
   // Get doctor ID for the current user if doctor
   useEffect(() => {
@@ -120,7 +123,7 @@ const AppointmentsPage: React.FC = () => {
   }).length;
 
   return (
-    <NewSidebar type={userType as 'doctor' | 'patient'}>
+    <NewSidebar type={userType}>
       <div className="container py-8 px-4 max-w-6xl">
         <h1 className="text-3xl font-bold mb-6 text-gray-800">Appointments</h1>
         
@@ -155,7 +158,7 @@ const AppointmentsPage: React.FC = () => {
                 <AppointmentList 
                   appointments={appointments}
                   isLoading={isLoading}
-                  userType={userType as 'doctor' | 'patient'}
+                  userType={userType}
                   onStatusChange={handleStatusChange}
                 />
               </div>
@@ -174,7 +177,7 @@ const AppointmentsPage: React.FC = () => {
               </div>
               <div className="md:col-span-2">
                 <AppointmentForm 
-                  userType={userType as 'doctor' | 'patient'}
+                  userType={userType}
                   selectedDate={selectedDate}
                   doctorId={doctorId}
                   doctorsList={doctors}
