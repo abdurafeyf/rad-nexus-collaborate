@@ -1,6 +1,6 @@
 
-import { useState, useEffect } from "react";
-import { addDays, format, parseISO, startOfDay } from "date-fns";
+import { useState, useEffect, useCallback } from "react";
+import { addDays, format, parseISO, startOfDay, isSameDay } from "date-fns";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentUserId, getDoctorIdFromUserId } from "@/integrations/supabase/client";
@@ -11,7 +11,7 @@ export interface Appointment {
   description: string | null;
   appointment_date: string;
   duration_minutes: number;
-  status: 'scheduled' | 'completed' | 'cancelled' | 'rescheduled';
+  status: 'scheduled' | 'completed' | 'cancelled' | 'rescheduled' | 'pending_doctor' | 'pending_patient';
   location: string | null;
   patient_id: string;
   doctor_id: string;
@@ -25,6 +25,16 @@ export interface Appointment {
 export interface TimeSlot {
   time: string;
   isAvailable: boolean;
+  slotId?: string;
+}
+
+export interface AvailabilitySlot {
+  id: string;
+  doctor_id: string;
+  date: Date;
+  start_time: string;
+  end_time: string;
+  is_booked: boolean;
 }
 
 export const useAppointments = (userType: 'doctor' | 'patient') => {
@@ -33,10 +43,11 @@ export const useAppointments = (userType: 'doctor' | 'patient') => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [availableTimeSlots, setAvailableTimeSlots] = useState<TimeSlot[]>([]);
   const [doctors, setDoctors] = useState<{id: string, name: string}[]>([]);
+  const [availableDates, setAvailableDates] = useState<Date[]>([]);
   const { toast } = useToast();
 
   // Fetch appointments for the current user
-  const fetchAppointments = async () => {
+  const fetchAppointments = useCallback(async () => {
     try {
       setIsLoading(true);
       let query;
@@ -112,30 +123,10 @@ export const useAppointments = (userType: 'doctor' | 'patient') => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [userType, toast]);
 
-  // Fetch available doctors (for patients)
-  const fetchDoctors = async () => {
-    if (userType !== 'patient') return;
-    
-    try {
-      const { data, error } = await supabase
-        .from("doctors")
-        .select("id, first_name, last_name");
-        
-      if (error) throw error;
-      
-      setDoctors(data.map((doc) => ({
-        id: doc.id,
-        name: `${doc.first_name} ${doc.last_name}`
-      })));
-    } catch (error: any) {
-      console.error("Error fetching doctors:", error);
-    }
-  };
-
-  // Check available time slots for a specific doctor on a specific date
-  const fetchAvailableTimeSlots = async (doctorId: string, date: Date) => {
+  // Fetch available time slots for a specific doctor on a specific date
+  const fetchAvailableTimeSlots = useCallback(async (doctorId: string, date: Date) => {
     try {
       setIsLoading(true);
       const dayOfWeek = date.getDay();
@@ -211,20 +202,94 @@ export const useAppointments = (userType: 'doctor' | 'patient') => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast]);
+
+  // Add a new function to fetch days with available slots for a doctor
+  const fetchAvailableDaysForDoctor = useCallback(async (doctorId: string) => {
+    try {
+      setIsLoading(true);
+      
+      // Get the doctor's weekly availability
+      const { data: availabilityData, error: availabilityError } = await supabase
+        .from("doctor_availability")
+        .select("*")
+        .eq("doctor_id", doctorId)
+        .eq("is_available", true);
+      
+      if (availabilityError) throw availabilityError;
+      
+      if (!availabilityData || availabilityData.length === 0) {
+        setAvailableDates([]);
+        return;
+      }
+      
+      // Generate dates for the next 30 days
+      const today = new Date();
+      const availableDays: Date[] = [];
+      
+      for (let i = 0; i < 30; i++) {
+        const date = addDays(today, i);
+        const dayOfWeek = date.getDay();
+        
+        // Check if this day of week is in the doctor's availability
+        const availableOnThisDay = availabilityData.some(
+          availability => availability.day_of_week === dayOfWeek
+        );
+        
+        if (availableOnThisDay) {
+          availableDays.push(date);
+        }
+      }
+      
+      setAvailableDates(availableDays);
+    } catch (error: any) {
+      console.error("Error fetching available days:", error);
+      toast({
+        title: "Error checking availability",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]);
+
+  // Fetch available doctors (for patients)
+  const fetchDoctors = useCallback(async () => {
+    if (userType !== 'patient') return;
+    
+    try {
+      const { data, error } = await supabase
+        .from("doctors")
+        .select("id, first_name, last_name");
+        
+      if (error) throw error;
+      
+      setDoctors(data.map((doc) => ({
+        id: doc.id,
+        name: `${doc.first_name} ${doc.last_name}`
+      })));
+    } catch (error: any) {
+      console.error("Error fetching doctors:", error);
+    }
+  }, [userType]);
 
   // Schedule a new appointment
-  const scheduleAppointment = async (
+  const scheduleAppointment = useCallback(async (
     doctorId: string, 
     patientId: string,
     title: string,
     description: string,
     appointmentDate: Date,
     duration: number = 30,
-    location?: string
+    location?: string,
+    requesterType: 'doctor' | 'patient' = 'patient'
   ) => {
     try {
       setIsLoading(true);
+      
+      // Set initial status based on who requested the appointment
+      const initialStatus = requesterType === 'doctor' ? 'pending_patient' : 'pending_doctor';
       
       const { data, error } = await supabase
         .from("appointments")
@@ -236,15 +301,15 @@ export const useAppointments = (userType: 'doctor' | 'patient') => {
           appointment_date: appointmentDate.toISOString(),
           duration_minutes: duration,
           location,
-          status: 'scheduled'
+          status: initialStatus
         })
         .select();
         
       if (error) throw error;
       
       toast({
-        title: "Appointment scheduled",
-        description: "Your appointment has been successfully scheduled.",
+        title: "Appointment requested",
+        description: `Your appointment request has been sent to the ${requesterType === 'doctor' ? 'patient' : 'doctor'} for approval.`,
       });
       
       // Refresh the appointments list
@@ -261,12 +326,12 @@ export const useAppointments = (userType: 'doctor' | 'patient') => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [fetchAppointments, toast]);
 
-  // Update an appointment status (complete, cancel, reschedule)
-  const updateAppointmentStatus = async (
+  // Update an appointment status (complete, cancel, reschedule, approve)
+  const updateAppointmentStatus = useCallback(async (
     appointmentId: string, 
-    status: 'scheduled' | 'completed' | 'cancelled' | 'rescheduled',
+    status: 'scheduled' | 'completed' | 'cancelled' | 'rescheduled' | 'pending_doctor' | 'pending_patient',
     reason?: string
   ) => {
     try {
@@ -284,9 +349,11 @@ export const useAppointments = (userType: 'doctor' | 'patient') => {
         
       if (error) throw error;
       
+      const statusMessage = status === 'scheduled' ? 'approved' : status;
+      
       toast({
-        title: `Appointment ${status}`,
-        description: `The appointment has been ${status}.`,
+        title: `Appointment ${statusMessage}`,
+        description: `The appointment has been ${statusMessage}.`,
       });
       
       // Refresh the appointments list
@@ -303,10 +370,10 @@ export const useAppointments = (userType: 'doctor' | 'patient') => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [fetchAppointments, toast]);
 
   // Set doctor availability
-  const setDoctorAvailability = async (
+  const setDoctorAvailability = useCallback(async (
     doctorId: string,
     dayOfWeek: number,
     startTime: string,
@@ -374,7 +441,7 @@ export const useAppointments = (userType: 'doctor' | 'patient') => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast]);
 
   // Initial data fetch
   useEffect(() => {
@@ -382,7 +449,7 @@ export const useAppointments = (userType: 'doctor' | 'patient') => {
     if (userType === 'patient') {
       fetchDoctors();
     }
-  }, [userType]);
+  }, [userType, fetchAppointments, fetchDoctors]);
 
   return {
     appointments,
@@ -391,7 +458,9 @@ export const useAppointments = (userType: 'doctor' | 'patient') => {
     setSelectedDate,
     availableTimeSlots,
     doctors,
+    availableDates,
     fetchAvailableTimeSlots,
+    fetchAvailableDaysForDoctor,
     scheduleAppointment,
     updateAppointmentStatus,
     setDoctorAvailability,

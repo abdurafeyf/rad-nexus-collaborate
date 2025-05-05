@@ -7,12 +7,22 @@ import { Calendar, Clock, MapPin, CheckCircle, XCircle } from "lucide-react";
 import { format, parseISO, isToday, isPast } from "date-fns";
 import { Appointment } from "@/hooks/useAppointments";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { useState } from "react";
 
 interface AppointmentListProps {
   appointments: Appointment[];
   isLoading: boolean;
   userType: 'doctor' | 'patient';
-  onStatusChange: (id: string, status: 'completed' | 'cancelled') => void;
+  onStatusChange: (id: string, status: 'scheduled' | 'completed' | 'cancelled' | 'rescheduled' | 'pending_doctor' | 'pending_patient', reason?: string) => void;
 }
 
 const AppointmentList: React.FC<AppointmentListProps> = ({ 
@@ -21,6 +31,9 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
   userType,
   onStatusChange
 }) => {
+  const [cancelReason, setCancelReason] = useState('');
+  const [selectedAppointment, setSelectedAppointment] = useState<string | null>(null);
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'scheduled':
@@ -31,8 +44,31 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
         return 'bg-red-100 text-red-800';
       case 'rescheduled':
         return 'bg-amber-100 text-amber-800';
+      case 'pending_doctor':
+        return 'bg-purple-100 text-purple-800';
+      case 'pending_patient':
+        return 'bg-orange-100 text-orange-800';
       default:
         return 'bg-gray-100 text-gray-800';
+    }
+  };
+  
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'pending_doctor':
+        return 'Awaiting Doctor';
+      case 'pending_patient':
+        return 'Awaiting Patient';
+      default:
+        return status.charAt(0).toUpperCase() + status.slice(1);
+    }
+  };
+
+  const handleCancelSubmit = () => {
+    if (selectedAppointment) {
+      onStatusChange(selectedAppointment, 'cancelled', cancelReason);
+      setSelectedAppointment(null);
+      setCancelReason('');
     }
   };
 
@@ -95,33 +131,180 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
                     {appointment.description}
                   </div>
                 )}
+                
+                {appointment.cancellation_reason && (
+                  <div className="mt-2 text-sm p-2 bg-red-50 border border-red-100 rounded">
+                    <span className="font-medium text-red-700">Cancellation reason:</span> {appointment.cancellation_reason}
+                  </div>
+                )}
               </div>
               
               <Badge className={getStatusColor(appointment.status)}>
-                {appointment.status}
+                {getStatusLabel(appointment.status)}
               </Badge>
             </div>
             
-            {appointment.status === 'scheduled' && !isPastAppointment && (
+            {!isPastAppointment && (
               <div className="mt-4 flex gap-2 justify-end">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => onStatusChange(appointment.id, 'cancelled')}
-                  className="text-red-600 border-red-200 hover:bg-red-50"
-                >
-                  <XCircle className="h-4 w-4 mr-1" />
-                  Cancel
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => onStatusChange(appointment.id, 'completed')}
-                  className="text-green-600 border-green-200 hover:bg-green-50"
-                >
-                  <CheckCircle className="h-4 w-4 mr-1" />
-                  Complete
-                </Button>
+                {/* Doctor approval for pending appointments */}
+                {userType === 'doctor' && appointment.status === 'pending_doctor' && (
+                  <>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => onStatusChange(appointment.id, 'scheduled')}
+                      className="text-green-600 border-green-200 hover:bg-green-50"
+                    >
+                      <CheckCircle className="h-4 w-4 mr-1" />
+                      Approve
+                    </Button>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="text-red-600 border-red-200 hover:bg-red-50"
+                        >
+                          <XCircle className="h-4 w-4 mr-1" />
+                          Decline
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Decline Appointment Request</DialogTitle>
+                          <DialogDescription>
+                            Please provide a reason for declining this appointment request.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <Textarea 
+                          placeholder="Reason for declining..."
+                          className="mt-2"
+                          value={cancelReason}
+                          onChange={(e) => setCancelReason(e.target.value)}
+                        />
+                        <div className="flex justify-end gap-2 mt-4">
+                          <Button
+                            variant="destructive"
+                            onClick={() => {
+                              onStatusChange(appointment.id, 'cancelled', cancelReason);
+                              setCancelReason('');
+                            }}
+                          >
+                            Decline Appointment
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </>
+                )}
+                
+                {/* Patient approval for pending appointments */}
+                {userType === 'patient' && appointment.status === 'pending_patient' && (
+                  <>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => onStatusChange(appointment.id, 'scheduled')}
+                      className="text-green-600 border-green-200 hover:bg-green-50"
+                    >
+                      <CheckCircle className="h-4 w-4 mr-1" />
+                      Approve
+                    </Button>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="text-red-600 border-red-200 hover:bg-red-50"
+                        >
+                          <XCircle className="h-4 w-4 mr-1" />
+                          Decline
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Decline Appointment</DialogTitle>
+                          <DialogDescription>
+                            Please provide a reason for declining this appointment.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <Textarea 
+                          placeholder="Reason for declining..."
+                          className="mt-2"
+                          value={cancelReason}
+                          onChange={(e) => setCancelReason(e.target.value)}
+                        />
+                        <div className="flex justify-end gap-2 mt-4">
+                          <Button
+                            variant="destructive"
+                            onClick={() => {
+                              onStatusChange(appointment.id, 'cancelled', cancelReason);
+                              setCancelReason('');
+                            }}
+                          >
+                            Decline Appointment
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </>
+                )}
+                
+                {/* For scheduled appointments that can be completed or cancelled */}
+                {appointment.status === 'scheduled' && (
+                  <>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="text-red-600 border-red-200 hover:bg-red-50"
+                        >
+                          <XCircle className="h-4 w-4 mr-1" />
+                          Cancel
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Cancel Appointment</DialogTitle>
+                          <DialogDescription>
+                            Please provide a reason for cancelling this appointment.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <Textarea 
+                          placeholder="Reason for cancellation..."
+                          className="mt-2"
+                          value={cancelReason}
+                          onChange={(e) => setCancelReason(e.target.value)}
+                        />
+                        <div className="flex justify-end gap-2 mt-4">
+                          <Button
+                            variant="destructive"
+                            onClick={() => {
+                              onStatusChange(appointment.id, 'cancelled', cancelReason);
+                              setCancelReason('');
+                            }}
+                          >
+                            Cancel Appointment
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                    
+                    {/* Only doctors can mark appointments as completed */}
+                    {userType === 'doctor' && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => onStatusChange(appointment.id, 'completed')}
+                        className="text-green-600 border-green-200 hover:bg-green-50"
+                      >
+                        <CheckCircle className="h-4 w-4 mr-1" />
+                        Complete
+                      </Button>
+                    )}
+                  </>
+                )}
               </div>
             )}
           </CardContent>

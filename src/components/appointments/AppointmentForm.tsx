@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { format } from 'date-fns';
-import { Appointment, TimeSlot } from "@/hooks/useAppointments";
+import { TimeSlot } from "@/hooks/useAppointments";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -25,6 +25,7 @@ interface AppointmentFormProps {
     doctorId: string;
     appointmentTime: Date;
     location?: string;
+    requesterType: 'doctor' | 'patient';
   }) => void;
 }
 
@@ -73,7 +74,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
     };
     
     fetchPatients();
-  }, [userType, doctorId]);
+  }, [userType, doctorId, toast]);
 
   const handleDoctorChange = (value: string) => {
     setSelectedDoctorId(value);
@@ -172,7 +173,8 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
         patientId,
         doctorId: finalDoctorId,
         appointmentTime,
-        location
+        location,
+        requesterType: userType
       });
       
       // Reset form
@@ -199,7 +201,9 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-lg">
-          {userType === 'doctor' ? 'Schedule Patient Appointment' : 'Book Appointment'}
+          {userType === 'doctor' 
+            ? 'Schedule Patient Appointment' 
+            : 'Request Appointment with Doctor'}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -348,10 +352,10 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({
           {isLoading ? (
             <>
               <div className="h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              Scheduling...
+              Processing...
             </>
           ) : (
-            'Schedule Appointment'
+            userType === 'doctor' ? 'Schedule Appointment' : 'Request Appointment'
           )}
         </Button>
       </CardContent>

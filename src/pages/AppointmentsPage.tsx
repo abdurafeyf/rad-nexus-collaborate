@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getDoctorIdFromUserId } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
+import { Badge } from "@/components/ui/badge";
 
 const AppointmentsPage: React.FC = () => {
   const { userType } = useParams<{ userType: string }>();
@@ -27,8 +28,10 @@ const AppointmentsPage: React.FC = () => {
     selectedDate,
     setSelectedDate,
     availableTimeSlots,
+    availableDates,
     doctors,
     fetchAvailableTimeSlots,
+    fetchAvailableDaysForDoctor,
     scheduleAppointment,
     updateAppointmentStatus,
     refreshAppointments
@@ -55,6 +58,7 @@ const AppointmentsPage: React.FC = () => {
   // Handle doctor selection for availability checking
   const handleDoctorSelect = (selectedDoctorId: string) => {
     fetchAvailableTimeSlots(selectedDoctorId, selectedDate);
+    fetchAvailableDaysForDoctor(selectedDoctorId);
   };
 
   // Handle date selection
@@ -62,6 +66,11 @@ const AppointmentsPage: React.FC = () => {
     setSelectedDate(date);
     if (userType === 'doctor' && doctorId) {
       fetchAvailableTimeSlots(doctorId, date);
+    } else if (userType === 'patient' && activeTab === "schedule" && doctors.length > 0) {
+      const selectedDoctor = document.querySelector('button[data-state="active"]')?.getAttribute('data-value');
+      if (selectedDoctor) {
+        fetchAvailableTimeSlots(selectedDoctor, date);
+      }
     }
   };
 
@@ -73,6 +82,7 @@ const AppointmentsPage: React.FC = () => {
     doctorId: string;
     appointmentTime: Date;
     location?: string;
+    requesterType: 'doctor' | 'patient';
   }) => {
     const result = await scheduleAppointment(
       data.doctorId,
@@ -81,22 +91,33 @@ const AppointmentsPage: React.FC = () => {
       data.description,
       data.appointmentTime,
       30,
-      data.location
+      data.location,
+      data.requesterType
     );
     
     if (result) {
+      const userText = data.requesterType === 'doctor' ? 'patient' : 'doctor';
       toast({
-        title: "Appointment scheduled",
-        description: "Your appointment has been successfully scheduled."
+        title: "Appointment requested",
+        description: `Your appointment has been requested and is pending approval from the ${userText}.`
       });
     }
   };
 
   // Handle status updates
-  const handleStatusChange = async (id: string, status: 'completed' | 'cancelled') => {
-    const reason = status === 'cancelled' ? window.prompt("Reason for cancellation (optional):") : undefined;
-    await updateAppointmentStatus(id, status, reason || undefined);
+  const handleStatusChange = async (id: string, status: 'scheduled' | 'completed' | 'cancelled' | 'rescheduled' | 'pending_doctor' | 'pending_patient', reason?: string) => {
+    await updateAppointmentStatus(id, status, reason);
+    refreshAppointments();
   };
+
+  // Get pending appointment counts
+  const pendingCount = appointments.filter(apt => {
+    if (userType === 'doctor') {
+      return apt.status === 'pending_doctor';
+    } else {
+      return apt.status === 'pending_patient';
+    }
+  }).length;
 
   return (
     <NewSidebar type={userType as 'doctor' | 'patient'}>
@@ -105,8 +126,17 @@ const AppointmentsPage: React.FC = () => {
         
         <Tabs defaultValue="upcoming" value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="mb-8">
-            <TabsTrigger value="upcoming">Upcoming Appointments</TabsTrigger>
-            <TabsTrigger value="schedule">Schedule Appointment</TabsTrigger>
+            <TabsTrigger value="upcoming" className="relative">
+              Upcoming Appointments
+              {pendingCount > 0 && (
+                <Badge className="ml-2 bg-red-500 hover:bg-red-600">
+                  {pendingCount}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="schedule">
+              {userType === 'doctor' ? 'Schedule Appointment' : 'Request Appointment'}
+            </TabsTrigger>
             {userType === 'doctor' && (
               <TabsTrigger value="availability">Manage Availability</TabsTrigger>
             )}
@@ -139,6 +169,7 @@ const AppointmentsPage: React.FC = () => {
                 <AppointmentCalendar 
                   selectedDate={selectedDate}
                   onDateSelect={handleDateSelect}
+                  availableDays={availableDates}
                 />
               </div>
               <div className="md:col-span-2">
