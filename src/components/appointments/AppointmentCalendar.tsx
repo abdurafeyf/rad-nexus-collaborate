@@ -49,7 +49,7 @@ const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
           mode="single"
           selected={selectedDate}
           onSelect={(date) => date && onDateSelect(date)}
-          className="rounded-md border"
+          className="rounded-md border pointer-events-auto"
           disabled={{ before: new Date() }}
           modifiers={{
             available: availableDays
@@ -58,7 +58,7 @@ const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
             available: { fontWeight: "bold", backgroundColor: "hsl(var(--muted))" }
           }}
           styles={{
-            day_today: { 
+            today: { 
               fontWeight: highlightToday ? "bold" : "normal",
               backgroundColor: highlightToday ? "hsl(var(--accent))" : ""
             }

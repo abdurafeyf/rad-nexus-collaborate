@@ -1,73 +1,64 @@
-# Welcome to your Lovable project
 
-## Project info
+# Radixpert Appointment System
 
-**URL**: https://lovable.dev/projects/cd85a4d5-a654-4485-aa98-f8c06d3604e2
+This document provides an overview of how the appointment system works in Radixpert for both radiologists and patients.
 
-## How can I edit this code?
+## For Radiologists (Doctors)
 
-There are several ways of editing your application.
+### Setting Your Availability
 
-**Use Lovable**
+1. **Navigate to Appointments**: Click on "Appointments" in the sidebar.
+2. **Access Availability Tab**: Select the "Manage Availability" tab.
+3. **Set Weekly Schedule**:
+   - Choose a day of the week
+   - Toggle availability on/off
+   - Set start and end times for each day
+   - Click "Save Availability"
+4. **View Your Schedule**: Your current availability will be displayed at the bottom of the availability panel.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/cd85a4d5-a654-4485-aa98-f8c06d3604e2) and start prompting.
+### Managing Appointment Requests
 
-Changes made via Lovable will be committed automatically to this repo.
+1. **Pending Appointments**: Any pending appointment requests from patients will appear in the "Upcoming Appointments" tab with a badge indicating the number of pending appointments.
+2. **Approve/Deny**: For each pending appointment, you can approve, reschedule, or deny it using the action buttons.
 
-**Use your preferred IDE**
+### Creating Appointments for Patients
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+1. **Schedule Appointment**: Click on the "Schedule Appointment" tab.
+2. **Select a Patient**: Choose a patient from your patient list.
+3. **Choose Date and Time**: Select an available time slot from your availability.
+4. **Submit Request**: The patient will receive a notification to approve your request.
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## For Patients
 
-Follow these steps:
+### Requesting an Appointment
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+1. **Navigate to Appointments**: Click on "Appointments" in the sidebar.
+2. **Request Appointment**: Select the "Request Appointment" tab.
+3. **Choose a Doctor**: Select a radiologist from the available list.
+4. **Select Date**: Available dates will be highlighted on the calendar.
+5. **Choose Time Slot**: Select from available time slots for the chosen doctor.
+6. **Submit Request**: Fill in appointment details and submit the request.
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+### Managing Your Appointments
 
-# Step 3: Install the necessary dependencies.
-npm i
+1. **Upcoming Appointments**: View all your appointments in the "Upcoming Appointments" tab.
+2. **Pending Approval**: Appointments requested by doctors will be marked as pending your approval.
+3. **Actions**: For each appointment, you can:
+   - Approve requests from doctors
+   - Cancel appointments
+   - Request rescheduling
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+## Appointment Statuses
 
-**Edit a file directly in GitHub**
+- **Pending Doctor**: Awaiting doctor approval
+- **Pending Patient**: Awaiting patient approval  
+- **Scheduled**: Approved by both parties
+- **Completed**: Appointment has taken place
+- **Cancelled**: Appointment was cancelled
+- **Rescheduled**: Appointment has been moved to a new date/time
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Calendar Color Legend
 
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/cd85a4d5-a654-4485-aa98-f8c06d3604e2) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+- **Green**: Available slots
+- **Blue**: Selected date
+- **Gray**: Unavailable dates or times
