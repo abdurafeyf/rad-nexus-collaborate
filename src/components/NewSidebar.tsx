@@ -94,18 +94,18 @@ const NewSidebar: React.FC<NewSidebarProps> = ({ type, children, className }) =>
   const navItems = type === 'doctor'
     ? [
         { to: "/doctor/dashboard", icon: <User />, label: "Patients" },
+        { to: "/doctor/appointments", icon: <Calendar />, label: "Appointments" },
         { to: "/doctor/messages", icon: <MessageSquare />, label: "Messages" },
         { to: "/doctor/ai-assistant", icon: <Bot />, label: "AI Assistant" },
         { to: "/doctor/reports", icon: <FileText />, label: "Reports" },
-        { to: "/doctor/appointments", icon: <Calendar />, label: "Appointments" },
         { to: "/doctor/settings", icon: <Settings />, label: "Settings" },
       ]
     : [
         { to: "/patient/portal", icon: <User />, label: "My Records" },
+        { to: "/patient/appointments", icon: <Calendar />, label: "Appointments" },
         { to: "/patient/messages", icon: <MessageSquare />, label: "Messages" },
         { to: "/patient/ai-assistant", icon: <Bot />, label: "AI Assistant" },
         { to: "/patient/reports", icon: <FileText />, label: "Reports" },
-        { to: "/patient/appointments", icon: <Calendar />, label: "Appointments" },
         { to: "/patient/settings", icon: <Settings />, label: "Settings" },
       ];
   

@@ -9,6 +9,72 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      appointments: {
+        Row: {
+          appointment_date: string
+          cancellation_reason: string | null
+          created_at: string
+          description: string | null
+          doctor_id: string
+          duration_minutes: number
+          id: string
+          location: string | null
+          patient_id: string
+          reminder_sent: boolean
+          rescheduling_link_id: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          appointment_date: string
+          cancellation_reason?: string | null
+          created_at?: string
+          description?: string | null
+          doctor_id: string
+          duration_minutes?: number
+          id?: string
+          location?: string | null
+          patient_id: string
+          reminder_sent?: boolean
+          rescheduling_link_id?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          appointment_date?: string
+          cancellation_reason?: string | null
+          created_at?: string
+          description?: string | null
+          doctor_id?: string
+          duration_minutes?: number
+          id?: string
+          location?: string | null
+          patient_id?: string
+          reminder_sent?: boolean
+          rescheduling_link_id?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointments_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       authorized_domains: {
         Row: {
           created_at: string
@@ -75,6 +141,47 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      doctor_availability: {
+        Row: {
+          created_at: string
+          day_of_week: number
+          doctor_id: string
+          end_time: string
+          id: string
+          is_available: boolean
+          start_time: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          day_of_week: number
+          doctor_id: string
+          end_time: string
+          id?: string
+          is_available?: boolean
+          start_time: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          day_of_week?: number
+          doctor_id?: string
+          end_time?: string
+          id?: string
+          is_available?: boolean
+          start_time?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "doctor_availability_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctors"
             referencedColumns: ["id"]
           },
         ]
@@ -369,7 +476,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_time_slot_available: {
+        Args: {
+          p_doctor_id: string
+          p_start_time: string
+          p_duration_minutes: number
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

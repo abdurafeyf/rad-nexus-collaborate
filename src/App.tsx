@@ -21,6 +21,7 @@ import AddPatientPage from "./pages/AddPatientPage";
 import PatientChatPage from "./pages/PatientChatPage";
 import PatientAiChat from "./pages/PatientAiChat";
 import DoctorAiChat from "./pages/DoctorAiChat";
+import AppointmentsPage from "./pages/AppointmentsPage";
 
 const App = () => (
   <>
@@ -74,6 +75,11 @@ const App = () => (
           <DoctorAiChat />
         </ProtectedRoute>
       } />
+      <Route path="/doctor/appointments" element={
+        <ProtectedRoute userType="doctor">
+          <AppointmentsPage />
+        </ProtectedRoute>
+      } />
       
       {/* Patient routes */}
       <Route path="/patient/dashboard" element={
@@ -109,6 +115,11 @@ const App = () => (
       <Route path="/patient/ai-assistant" element={
         <ProtectedRoute userType="patient">
           <PatientAiChat />
+        </ProtectedRoute>
+      } />
+      <Route path="/patient/appointments" element={
+        <ProtectedRoute userType="patient">
+          <AppointmentsPage />
         </ProtectedRoute>
       } />
       

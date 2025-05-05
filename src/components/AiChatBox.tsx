@@ -137,7 +137,7 @@ const AiChatBox: React.FC<AiChatBoxProps> = ({ className }) => {
                         {message.timestamp && (
                           <div className={cn(
                             "text-[10px] mt-2 text-right",
-                            isUser ? "text-coral-100" : "text-gray-400"
+                            isUser ? "text-coral-50" : "text-gray-400"
                           )}>
                             {format(new Date(message.timestamp), "h:mm a")}
                           </div>
@@ -149,15 +149,17 @@ const AiChatBox: React.FC<AiChatBoxProps> = ({ className }) => {
               })}
               
               {isLoading && (
-                <div className="flex items-start gap-3 max-w-[80%]">
-                  <div className="flex-shrink-0 h-8 w-8 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center">
-                    <Bot className="h-4 w-4" />
-                  </div>
-                  <div className="bg-gray-100 rounded-lg px-4 py-3 text-gray-500">
-                    <div className="flex space-x-1">
-                      <div className="h-2 w-2 rounded-full bg-gray-400 animate-bounce"></div>
-                      <div className="h-2 w-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: "0.2s" }}></div>
-                      <div className="h-2 w-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: "0.4s" }}></div>
+                <div className="flex justify-start">
+                  <div className="flex items-start gap-3 max-w-[80%]">
+                    <div className="flex-shrink-0 h-8 w-8 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center">
+                      <Bot className="h-4 w-4" />
+                    </div>
+                    <div className="bg-gray-100 rounded-lg px-4 py-3 text-gray-500">
+                      <div className="flex space-x-1">
+                        <div className="h-2 w-2 rounded-full bg-gray-400 animate-bounce"></div>
+                        <div className="h-2 w-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: "0.2s" }}></div>
+                        <div className="h-2 w-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: "0.4s" }}></div>
+                      </div>
                     </div>
                   </div>
                 </div>
