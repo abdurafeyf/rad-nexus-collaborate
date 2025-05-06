@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -79,15 +78,6 @@ const NewNavBar: React.FC = () => {
               Pricing
             </Link>
             <Link 
-              to="/blog" 
-              className={cn(
-                "text-sm font-medium transition-colors hover:text-teal-500",
-                isScrolled ? "text-gray-700" : "text-white/90"
-              )}
-            >
-              Blog
-            </Link>
-            <Link 
               to="/about" 
               className={cn(
                 "text-sm font-medium transition-colors hover:text-teal-500",
@@ -122,7 +112,7 @@ const NewNavBar: React.FC = () => {
                     !isScrolled && "bg-white text-coral-600 hover:bg-white/90 hover:text-coral-700"
                   )}
                 >
-                  Download
+                  Join Now
                 </Button>
               </Link>
             </div>
@@ -160,12 +150,6 @@ const NewNavBar: React.FC = () => {
               Pricing
             </Link>
             <Link 
-              to="/blog" 
-              className="text-lg font-medium text-gray-800 py-2"
-            >
-              Blog
-            </Link>
-            <Link 
               to="/about" 
               className="text-lg font-medium text-gray-800 py-2"
             >
@@ -185,7 +169,7 @@ const NewNavBar: React.FC = () => {
                   variant="default"
                   className="w-full bg-coral-500 hover:bg-coral-600 rounded-full"
                 >
-                  Download
+                  Join Now
                 </Button>
               </Link>
             </div>
