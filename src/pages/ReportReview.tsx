@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Edit, Check, FileText, Send } from "lucide-react";
+import { ArrowLeft, Edit, Check, FileText, Send, Eye, Code } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
@@ -17,6 +17,9 @@ import {
 } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { Textarea } from "@/components/ui/textarea";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeSanitize from "rehype-sanitize";
 
 type Report = {
   id: string;
@@ -57,6 +60,7 @@ const ReportReview = () => {
   const [isPublishing, setIsPublishing] = useState(false);
   const [isPublishDialogOpen, setIsPublishDialogOpen] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
 
   // Fetch report data
   useEffect(() => {
@@ -140,6 +144,7 @@ const ReportReview = () => {
       });
       
       setIsEditing(false);
+      setShowPreview(false);
       
       toast({
         title: "Changes saved",
@@ -197,26 +202,6 @@ const ReportReview = () => {
     } finally {
       setIsPublishing(false);
     }
-  };
-
-  // Convert markdown content to HTML for display
-  const renderMarkdown = (markdown: string) => {
-    // A very simple markdown parser for headings and paragraphs
-    return markdown
-      .split("\n")
-      .map((line, index) => {
-        if (line.startsWith("# ")) {
-          return <h1 key={index} className="text-2xl font-bold mt-4 mb-2">{line.substring(2)}</h1>;
-        } else if (line.startsWith("## ")) {
-          return <h2 key={index} className="text-xl font-semibold mt-3 mb-2">{line.substring(3)}</h2>;
-        } else if (line.startsWith("### ")) {
-          return <h3 key={index} className="text-lg font-medium mt-2 mb-1">{line.substring(4)}</h3>;
-        } else if (line.trim() === "") {
-          return <br key={index} />;
-        } else {
-          return <p key={index} className="mb-2">{line}</p>;
-        }
-      });
   };
 
   if (isLoading) {
@@ -324,31 +309,67 @@ const ReportReview = () => {
             <CardContent>
               {isEditing ? (
                 <div className="space-y-4">
-                  <Textarea
-                    value={editedContent}
-                    onChange={(e) => setEditedContent(e.target.value)}
-                    className="min-h-[500px] font-mono"
-                    placeholder="Enter report content here..."
-                  />
+                  {showPreview ? (
+                    <div className="border rounded-md p-4 min-h-[500px] prose max-w-none bg-gray-50">
+                      <ReactMarkdown 
+                        remarkPlugins={[remarkGfm]} 
+                        rehypePlugins={[rehypeSanitize]}
+                      >
+                        {editedContent}
+                      </ReactMarkdown>
+                    </div>
+                  ) : (
+                    <Textarea
+                      value={editedContent}
+                      onChange={(e) => setEditedContent(e.target.value)}
+                      className="min-h-[500px] font-mono"
+                      placeholder="Enter report content here using Markdown..."
+                    />
+                  )}
                   
-                  <div className="flex justify-end space-x-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setEditedContent(report.content);
-                        setIsEditing(false);
-                      }}
+                  <div className="flex justify-between">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setShowPreview(!showPreview)}
                     >
-                      Cancel
+                      {showPreview ? (
+                        <>
+                          <Code className="mr-2 h-4 w-4" />
+                          Edit Markdown
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="mr-2 h-4 w-4" />
+                          Preview
+                        </>
+                      )}
                     </Button>
-                    <Button onClick={handleSaveChanges}>
-                      Save Changes
-                    </Button>
+                    
+                    <div className="space-x-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setEditedContent(report.content);
+                          setIsEditing(false);
+                          setShowPreview(false);
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button onClick={handleSaveChanges}>
+                        Save Changes
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ) : (
                 <div className="prose max-w-none">
-                  {renderMarkdown(report.content)}
+                  <ReactMarkdown 
+                    remarkPlugins={[remarkGfm]} 
+                    rehypePlugins={[rehypeSanitize]}
+                  >
+                    {report.content}
+                  </ReactMarkdown>
                 </div>
               )}
             </CardContent>
