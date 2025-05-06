@@ -1,5 +1,4 @@
-
-import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
+import React, { createContext, useState, useEffect, useContext, ReactNode, useRef } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
@@ -29,6 +28,13 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  // Add flag to track manual sign-ins vs automatic token refreshes
+  const isBackgroundRefresh = useRef(false);
+  // Add flag to track initial auth setup
+  const isInitialAuth = useRef(true);
+  // Track last session data to prevent unnecessary updates
+  const lastSessionRef = useRef<string | null>(null);
+  
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [userType, setUserType] = useState<UserType | null>(null);
@@ -42,26 +48,43 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       (event, session) => {
         console.log('Auth state changed:', event);
         
-        setSession(session);
-        setUser(session?.user ?? null);
+        // Create a session identifier to check if anything significant changed
+        const sessionId = session?.access_token || null;
+        const isSessionChanged = lastSessionRef.current !== sessionId;
+        lastSessionRef.current = sessionId;
         
-        // Safely extract user_type from metadata
-        const metadata = session?.user?.user_metadata;
-        setUserMetadata(metadata as UserMetadata || null);
-        setUserType((metadata?.user_type as UserType) || null);
+        // Only update state if this is initial auth or session actually changed
+        if (isInitialAuth.current || (sessionId && isSessionChanged)) {
+          setSession(session);
+          setUser(session?.user ?? null);
+          
+          // Safely extract user_type from metadata
+          const metadata = session?.user?.user_metadata;
+          setUserMetadata(metadata as UserMetadata || null);
+          setUserType((metadata?.user_type as UserType) || null);
+        }
         
-        // If user has logged in, let them know
-        if (event === 'SIGNED_IN') {
+        // Only show notifications for genuine sign-ins/sign-outs
+        if (event === 'SIGNED_IN' && !isBackgroundRefresh.current && !isInitialAuth.current) {
           sonnerToast.success('Signed in successfully');
-        } else if (event === 'SIGNED_OUT') {
+        } else if (event === 'SIGNED_OUT' && !isBackgroundRefresh.current) {
           sonnerToast.info('Signed out successfully');
         }
+        
+        // After first auth check, set initial flag to false
+        isInitialAuth.current = false;
+        
+        // Reset the background refresh flag
+        isBackgroundRefresh.current = false;
       }
     );
     
     // Then check for existing session
     const initializeAuth = async () => {
       try {
+        // Mark as initial auth and background refresh
+        isBackgroundRefresh.current = true;
+        
         const { data, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -69,6 +92,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         } else if (data.session) {
           setSession(data.session);
           setUser(data.session.user);
+          
+          // Save session ID to prevent duplicate updates
+          lastSessionRef.current = data.session.access_token;
           
           // Safely extract user_type from metadata
           const metadata = data.session.user.user_metadata;
@@ -84,11 +110,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     
     initializeAuth();
     
+    // Set up visibility change listener to handle background refreshes
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        isBackgroundRefresh.current = true;
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
     return () => {
       subscription.unsubscribe();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 
+  // Rest of your functions remain the same
   const signIn = async (email: string, password: string, userType: UserType) => {
     try {
       // First check if email format is valid
@@ -100,6 +137,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       console.log(`Attempting to sign in as ${userType} with email: ${email}`);
+      
+      // Reset flag for manual sign-in
+      isBackgroundRefresh.current = false;
 
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -145,6 +185,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           data: null
         };
       }
+      
+      // Reset flag for manual sign-up
+      isBackgroundRefresh.current = false;
 
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -189,19 +232,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const refreshSession = async () => {
     try {
+      // Mark this as a background refresh
+      isBackgroundRefresh.current = true;
+      
       const { data, error } = await supabase.auth.getSession();
       
       if (error) {
         throw error;
       }
       
-      setSession(data.session);
-      setUser(data.session?.user ?? null);
+      // Only update if session has changed
+      const sessionId = data.session?.access_token || null;
+      const isSessionChanged = lastSessionRef.current !== sessionId;
+      
+      if (isSessionChanged && sessionId) {
+        lastSessionRef.current = sessionId;
+        setSession(data.session);
+        setUser(data.session?.user ?? null);
 
-      if (data.session?.user) {
-        const metadata = data.session.user.user_metadata;
-        setUserMetadata(metadata as UserMetadata || null);
-        setUserType((metadata?.user_type as UserType) || null);
+        if (data.session?.user) {
+          const metadata = data.session.user.user_metadata;
+          setUserMetadata(metadata as UserMetadata || null);
+          setUserType((metadata?.user_type as UserType) || null);
+        }
       }
     } catch (error: any) {
       console.error('Failed to refresh session:', error.message);
