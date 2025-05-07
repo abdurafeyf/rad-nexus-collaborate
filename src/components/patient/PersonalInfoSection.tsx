@@ -1,4 +1,3 @@
-
 import React from "react";
 import { User, Mail, Calendar } from "lucide-react";
 import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
@@ -70,7 +69,7 @@ const PersonalInfoSection: React.FC<PersonalInfoSectionProps> = ({ form }) => {
             control={form.control}
             name="dateOfBirth"
             render={({ field }) => (
-              <FormItem className="flex flex-col">
+              <FormItem>
                 <FormLabel className="text-gray-700">Date of Birth</FormLabel>
                 <Popover>
                   <PopoverTrigger asChild>
@@ -78,7 +77,7 @@ const PersonalInfoSection: React.FC<PersonalInfoSectionProps> = ({ form }) => {
                       <Button
                         variant={"outline"}
                         className={cn(
-                          "w-full pl-3 text-left font-normal border-gray-200",
+                          "w-full h-10 pl-3 text-left font-normal border-gray-200 focus:ring-teal-500 focus:border-teal-500",
                           !field.value && "text-gray-400"
                         )}
                       >
@@ -119,7 +118,7 @@ const PersonalInfoSection: React.FC<PersonalInfoSectionProps> = ({ form }) => {
                   value={field.value}
                 >
                   <FormControl>
-                    <SelectTrigger className="border-gray-200 focus:ring-teal-500">
+                    <SelectTrigger className="h-10 border-gray-200 focus:ring-teal-500 focus:border-teal-500">
                       <SelectValue placeholder="Select gender" />
                     </SelectTrigger>
                   </FormControl>
