@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 // Hardcoded API key instead of environment variable
-const OPENAI_API_KEY = "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";
+const OPENAI_API_KEY = "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";
 
 // Function to validate and fetch the image with timeout and retry
 async function validateAndFetchImage(imageUrl) {
