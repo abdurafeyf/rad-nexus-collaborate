@@ -97,7 +97,7 @@ const AiChatBox: React.FC<AiChatBoxProps> = ({ className }) => {
               <div className="bg-teal-50 rounded-full p-3 mb-4">
                 <Bot className="h-8 w-8 text-teal-500" />
               </div>
-              <h3 className="text-lg font-medium mb-2">Welcome to RadiAI</h3>
+              <h3 className="text-lg font-medium mb-2">Welcome to Radixpert Bot</h3>
               <p className="text-gray-500 max-w-md">
                 I can answer questions about radiology procedures, imaging techniques, and medical terminology. How can I assist you today?
               </p>
