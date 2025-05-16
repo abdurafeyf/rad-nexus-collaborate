@@ -96,21 +96,29 @@ const NewSidebar: React.FC<NewSidebarProps> = ({ type, children, className }) =>
         { to: "/doctor/dashboard", icon: <User />, label: "Patients" },
         { to: "/doctor/appointments", icon: <Calendar />, label: "Appointments" },
         { to: "/doctor/messages", icon: <MessageSquare />, label: "Messages" },
-        { to: "/doctor/ai-assistant", icon: <Bot />, label: "AI Assistant" },
+        { to: "/doctor/ai-chat", icon: <Bot />, label: "AI Assistant" },
         { to: "/doctor/reports", icon: <FileText />, label: "Reports" },
         { to: "/doctor/settings", icon: <Settings />, label: "Settings" },
       ]
     : [
-        { to: "/patient/portal", icon: <User />, label: "My Records" },
+        { to: "/patient", icon: <User />, label: "My Records" },
         { to: "/patient/appointments", icon: <Calendar />, label: "Appointments" },
-        { to: "/patient/messages", icon: <MessageSquare />, label: "Messages" },
-        { to: "/patient/ai-assistant", icon: <Bot />, label: "AI Assistant" },
+        { to: "/patient/chat", icon: <MessageSquare />, label: "Messages" },
+        { to: "/patient/ai-chat", icon: <Bot />, label: "AI Assistant" },
         { to: "/patient/reports", icon: <FileText />, label: "Reports" },
         { to: "/patient/settings", icon: <Settings />, label: "Settings" },
       ];
   
+  // Fix path matching to handle subpaths correctly
   const isPathActive = (path: string) => {
-    return location.pathname === path || location.pathname.startsWith(`${path}/`);
+    if (path === "/doctor/dashboard" && location.pathname === "/doctor/dashboard") {
+      return true;
+    }
+    if (path === "/patient" && (location.pathname === "/patient" || location.pathname === "/patient/dashboard" || location.pathname === "/patient/portal")) {
+      return true;
+    }
+    // For other paths, check if they start with the nav item path but aren't exactly the base path
+    return path !== "/doctor/dashboard" && path !== "/patient" && location.pathname.startsWith(path);
   };
   
   // Mobile toggle
