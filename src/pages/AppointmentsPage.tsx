@@ -119,7 +119,7 @@ const AppointmentsPage: React.FC = () => {
   // Handle status updates
   const handleStatusChange = async (id: string, status: 'scheduled' | 'completed' | 'cancelled' | 'rescheduled' | 'pending_doctor' | 'pending_patient', reason?: string) => {
     // Validate that only doctors can approve/reject appointments
-    if ((status === 'scheduled' || status === 'cancelled') && userType !== 'doctor' && status === 'pending_doctor') {
+    if ((status === 'scheduled' || status === 'cancelled') && userType !== 'doctor') {
       toast({
         title: "Operation not allowed",
         description: "Only doctors can approve or reject appointment requests.",
