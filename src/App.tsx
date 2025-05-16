@@ -1,5 +1,5 @@
 
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
@@ -46,135 +46,133 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <Router>
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<Index />} />
-            <Route path="/login/:type" element={<Login />} />
-            <Route path="/register/:type" element={<Register />} />
-            <Route path="/organization-register" element={<OrganizationRegister />} />
-            <Route path="/registration-success" element={<RegistrationSuccess />} />
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<Index />} />
+          <Route path="/login/:type" element={<Login />} />
+          <Route path="/register/:type" element={<Register />} />
+          <Route path="/organization-register" element={<OrganizationRegister />} />
+          <Route path="/registration-success" element={<RegistrationSuccess />} />
 
-            {/* Doctor Routes */}
-            <Route
-              path="/doctor/dashboard"
-              element={
-                <ProtectedRoute userType="doctor">
-                  <DoctorDashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/doctor/patients/:patientId"
-              element={
-                <ProtectedRoute userType="doctor">
-                  <PatientDetail />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/doctor/add-patient"
-              element={
-                <ProtectedRoute userType="doctor">
-                  <AddPatientPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/doctor/reports/:reportId"
-              element={
-                <ProtectedRoute userType="doctor">
-                  <ReportReview />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/doctor/messages"
-              element={
-                <ProtectedRoute userType="doctor">
-                  <MessagesPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/doctor/patients/:patientId/chat"
-              element={
-                <ProtectedRoute userType="doctor">
-                  <PatientChatPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/doctor/ai-chat"
-              element={
-                <ProtectedRoute userType="doctor">
-                  <DoctorAiChat />
-                </ProtectedRoute>
-              }
-            />
+          {/* Doctor Routes */}
+          <Route
+            path="/doctor/dashboard"
+            element={
+              <ProtectedRoute userType="doctor">
+                <DoctorDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/doctor/patients/:patientId"
+            element={
+              <ProtectedRoute userType="doctor">
+                <PatientDetail />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/doctor/add-patient"
+            element={
+              <ProtectedRoute userType="doctor">
+                <AddPatientPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/doctor/reports/:reportId"
+            element={
+              <ProtectedRoute userType="doctor">
+                <ReportReview />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/doctor/messages"
+            element={
+              <ProtectedRoute userType="doctor">
+                <MessagesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/doctor/patients/:patientId/chat"
+            element={
+              <ProtectedRoute userType="doctor">
+                <PatientChatPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/doctor/ai-chat"
+            element={
+              <ProtectedRoute userType="doctor">
+                <DoctorAiChat />
+              </ProtectedRoute>
+            }
+          />
 
-            {/* Patient Routes */}
-            <Route
-              path="/patient"
-              element={
-                <ProtectedRoute userType="patient">
-                  <PatientPortal />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/patient/reports/:reportId"
-              element={
-                <ProtectedRoute userType="patient">
-                  <PatientReport />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/patient/upload"
-              element={
-                <ProtectedRoute userType="patient">
-                  <ScanUpload />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/patient/conversations"
-              element={
-                <ProtectedRoute userType="patient">
-                  <PatientConversationsPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/patient/chat/:doctorId"
-              element={
-                <ProtectedRoute userType="patient">
-                  <PatientChatPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/patient/chat"
-              element={
-                <ProtectedRoute userType="patient">
-                  <PatientConversationsPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/patient/ai-chat"
-              element={
-                <ProtectedRoute userType="patient">
-                  <PatientAiChat />
-                </ProtectedRoute>
-              }
-            />
+          {/* Patient Routes */}
+          <Route
+            path="/patient"
+            element={
+              <ProtectedRoute userType="patient">
+                <PatientPortal />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/patient/reports/:reportId"
+            element={
+              <ProtectedRoute userType="patient">
+                <PatientReport />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/patient/upload"
+            element={
+              <ProtectedRoute userType="patient">
+                <ScanUpload />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/patient/conversations"
+            element={
+              <ProtectedRoute userType="patient">
+                <PatientConversationsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/patient/chat/:doctorId"
+            element={
+              <ProtectedRoute userType="patient">
+                <PatientChatPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/patient/chat"
+            element={
+              <ProtectedRoute userType="patient">
+                <PatientConversationsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/patient/ai-chat"
+            element={
+              <ProtectedRoute userType="patient">
+                <PatientAiChat />
+              </ProtectedRoute>
+            }
+          />
 
-            {/* 404 Route */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </Router>
+          {/* 404 Route */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
         <Toaster richColors />
       </AuthProvider>
     </QueryClientProvider>
