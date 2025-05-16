@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <title>Redirecting...</title>
   <script>
-    // Get the current path and redirect to the root with the path as a query parameter
+    // Get the current path and redirect to the root with the path as a hash route
     const path = window.location.pathname;
     const redirectUrl = window.location.origin + '/#' + path;
     window.location.replace(redirectUrl);
