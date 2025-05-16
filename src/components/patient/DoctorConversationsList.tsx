@@ -138,7 +138,7 @@ const DoctorConversationsList = ({ patientId }: DoctorConversationsListProps) =>
                 name: `Dr. ${record.doctor.first_name} ${record.doctor.last_name}`,
                 email: record.doctor.email,
                 lastMessage: lastChat?.message || "No messages",
-                lastMessageTime: lastChat?.created_at || record.doctor.updated_at || new Date().toISOString(),
+                lastMessageTime: lastChat?.created_at || new Date().toISOString(), // Fixed: removed record.doctor.updated_at
                 doctorId: record.doctor.id
               });
             }
