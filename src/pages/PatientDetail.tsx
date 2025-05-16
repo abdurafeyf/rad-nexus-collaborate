@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -52,9 +53,9 @@ type ScanRecord = {
   patient_id: string;
   file_url: string;
   scan_type: string;
-  body_part: string;
+  body_part?: string;
   date_taken: string;
-  notes: string;
+  notes?: string;
   created_at: string;
 };
 
@@ -63,10 +64,11 @@ type Report = {
   scan_record_id: string;
   patient_id: string;
   content: string;
-  status: string;
+  status: string; // Changed from "draft" | "published" to string
   created_at: string;
   updated_at: string;
-  published_at: string;
+  published_at: string | null;
+  scan_type?: string;
 };
 
 const PatientDetail = () => {

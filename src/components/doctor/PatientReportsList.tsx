@@ -24,7 +24,7 @@ type Report = {
   scan_record_id: string;
   patient_id: string;
   content: string;
-  status: "draft" | "published";
+  status: string; // Changed from "draft" | "published" to string to match the database
   created_at: string;
   updated_at: string;
   published_at: string | null;
