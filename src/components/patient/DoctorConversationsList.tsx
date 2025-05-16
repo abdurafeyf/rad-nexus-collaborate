@@ -82,22 +82,33 @@ const DoctorConversationsList = ({ patientId }: DoctorConversationsListProps) =>
         }
         
         // Now look for any other doctors that have created chats with this patient
+        // First, get all scan records for this patient with their associated doctors
+        const { data: scanRecords, error: scanError } = await supabase
+          .from("scan_records")
+          .select(`
+            id,
+            doctor_id,
+            doctor:doctor_id (
+              id, 
+              first_name, 
+              last_name, 
+              email
+            )
+          `)
+          .eq("patient_id", patientId)
+          .not("doctor_id", "is", null);
+          
+        if (scanError) throw scanError;
+        
+        // Now get chats that might have been initiated by doctors
         const { data: chatData, error: chatError } = await supabase
           .from("chats")
           .select(`
+            id,
             patient_id,
             sender_type,
             message,
-            created_at,
-            scan_records (
-              doctor_id,
-              doctors:doctor_id (
-                id,
-                first_name,
-                last_name,
-                email
-              )
-            )
+            created_at
           `)
           .eq("patient_id", patientId)
           .neq("sender_type", "patient")
@@ -105,27 +116,31 @@ const DoctorConversationsList = ({ patientId }: DoctorConversationsListProps) =>
           
         if (chatError) throw chatError;
         
-        if (chatData && chatData.length > 0) {
+        if (scanRecords && scanRecords.length > 0) {
           // Create a map to track unique doctors
           const doctorMap = new Map<string, DoctorConversation>();
           
-          // Process chat messages to extract unique doctors
-          chatData.forEach(chat => {
-            if (chat.scan_records?.doctors) {
-              const doctor = chat.scan_records.doctors;
-              const doctorId = doctor.id;
+          // Process scan records to extract unique doctors
+          scanRecords.forEach(record => {
+            if (record.doctor && !doctorMap.has(record.doctor.id) && 
+                (!patient?.doctor_id || record.doctor.id !== patient.doctor_id)) {
               
-              // Skip if this doctor is already processed or is the primary doctor
-              if (!doctorMap.has(doctorId) && (!patient?.doctor_id || doctorId !== patient.doctor_id)) {
-                doctorMap.set(doctorId, {
-                  id: doctorId,
-                  name: `Dr. ${doctor.first_name} ${doctor.last_name}`,
-                  email: doctor.email,
-                  lastMessage: chat.message || "No message",
-                  lastMessageTime: chat.created_at,
-                  doctorId: doctorId
-                });
-              }
+              // Find the most recent chat with this doctor
+              const doctorChats = chatData?.filter(chat => 
+                // This is a simplified approach - in a real app, you'd store doctor_id in chats
+                chat.sender_type === "doctor"
+              ) || [];
+              
+              const lastChat = doctorChats.length > 0 ? doctorChats[0] : null;
+              
+              doctorMap.set(record.doctor.id, {
+                id: record.doctor.id,
+                name: `Dr. ${record.doctor.first_name} ${record.doctor.last_name}`,
+                email: record.doctor.email,
+                lastMessage: lastChat?.message || "No messages",
+                lastMessageTime: lastChat?.created_at || record.doctor.updated_at || new Date().toISOString(),
+                doctorId: record.doctor.id
+              });
             }
           });
           
