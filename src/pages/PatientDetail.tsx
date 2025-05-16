@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -31,12 +31,42 @@ type Patient = {
   id: string;
   name: string;
   email: string;
-  date_of_birth: string;
-  gender: string;
-  phone_number: string;
-  address: string;
-  medical_history: string;
+  date_of_birth?: string;
+  gender?: string;
+  phone_number?: string;
+  address?: string;
+  medical_history?: string;
   created_at: string;
+  status?: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
+  is_typing?: boolean;
+  last_visit?: string;
+  notes?: string;
+  updated_at?: string;
+  updated_by?: string;
+};
+
+type ScanRecord = {
+  id: string;
+  patient_id: string;
+  file_url: string;
+  scan_type: string;
+  body_part: string;
+  date_taken: string;
+  notes: string;
+  created_at: string;
+};
+
+type Report = {
+  id: string;
+  scan_record_id: string;
+  patient_id: string;
+  content: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  published_at: string;
 };
 
 const PatientDetail = () => {

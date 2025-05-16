@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -24,7 +23,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
-import { useToast } from "./ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 interface SidebarLinkProps {
   to: string;
@@ -76,6 +75,7 @@ const NewSidebar: React.FC<NewSidebarProps> = ({ type, children, className }) =>
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const { toast } = useToast();
   
   // User information
   const [userFullName, setUserFullName] = useState("");

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Search, FileText, User, Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,7 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import NewSidebar from "@/components/NewSidebar";
 import { useAuth } from "@/contexts/AuthContext";
@@ -31,11 +31,20 @@ type Patient = {
   id: string;
   name: string;
   email: string;
-  date_of_birth: string;
-  gender: string;
-  phone_number: string;
-  address: string;
+  date_of_birth?: string;
+  gender?: string;
+  phone_number?: string;
+  address?: string;
+  medical_history?: string;
   created_at: string;
+  status?: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
+  is_typing?: boolean;
+  last_visit?: string;
+  notes?: string;
+  updated_at?: string;
+  updated_by?: string;
 };
 
 type ScanRecord = {
@@ -86,7 +95,7 @@ const DoctorDashboard = () => {
         throw new Error(error.message);
       }
 
-      return data as Patient[];
+      return data as unknown as Patient[];
     },
     enabled: !!user?.id,
   });
@@ -254,14 +263,16 @@ const DoctorDashboard = () => {
         </div>
 
         <div className="mb-6">
-          <Input
-            type="text"
-            placeholder="Search patients, scans, or reports..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="max-w-md"
-            icon={<Search className="h-4 w-4 text-gray-400" />}
-          />
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              type="text"
+              placeholder="Search patients, scans, or reports..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 max-w-md"
+            />
+          </div>
         </div>
 
         <Tabs
@@ -468,7 +479,9 @@ const DoctorDashboard = () => {
                           <TableCell>{report.scan_type || "Unknown"}</TableCell>
                           <TableCell>
                             {report.status === "published" ? (
-                              <Badge variant="success">Published</Badge>
+                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                Published
+                              </Badge>
                             ) : (
                               <Badge variant="outline">Draft</Badge>
                             )}
