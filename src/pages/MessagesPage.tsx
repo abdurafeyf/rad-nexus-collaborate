@@ -176,45 +176,10 @@ const MessagesPage = () => {
             setConversations([]);
           }
         } else if (userType === "patient" && patientInfo) {
-          console.log("Fetching doctor for patient ID:", patientInfo.id);
-          // For patients, fetch their assigned doctor
-          if (patientInfo.doctor_id) {
-            const { data: doctorData, error: doctorError } = await supabase
-              .from("doctors")
-              .select("*")
-              .eq("id", patientInfo.doctor_id)
-              .maybeSingle();
-              
-            if (doctorError && !doctorError.message.includes("No rows found")) throw doctorError;
-            
-            if (doctorData) {
-              console.log("Doctor found:", doctorData);
-              const { data: lastMessage } = await supabase
-                .from("chats")
-                .select("*")
-                .eq("patient_id", patientInfo.id)
-                .order("created_at", { ascending: false })
-                .limit(1)
-                .maybeSingle();
-              
-              setConversations([
-                {
-                  id: doctorData.id,
-                  name: `Dr. ${doctorData.first_name} ${doctorData.last_name}`,
-                  email: doctorData.email,
-                  lastMessage: lastMessage?.message || "No messages",
-                  lastMessageTime: lastMessage?.created_at || new Date().toISOString(),
-                },
-              ]);
-              console.log("Doctor conversation set");
-            } else {
-              console.log("No doctor found for this patient");
-              setConversations([]);
-            }
-          } else {
-            console.log("Patient has no assigned doctor");
-            setConversations([]);
-          }
+          console.log("Patient detected, redirecting to conversations page");
+          // For patients, we now redirect to the conversations page
+          navigate("/patient/conversations");
+          return;
         } else {
           console.log("No patient info or doctor info found");
           setConversations([]);
@@ -256,23 +221,6 @@ const MessagesPage = () => {
           }
         )
         .subscribe();
-    } else if (user && userType === "patient" && patientInfo) {
-      channel = supabase
-        .channel('patient-chats')
-        .on(
-          'postgres_changes',
-          { 
-            event: 'INSERT', 
-            schema: 'public', 
-            table: 'chats',
-            filter: `patient_id=eq.${patientInfo.id}` 
-          },
-          (payload) => {
-            // When a new message comes in, refresh conversations
-            fetchConversations();
-          }
-        )
-        .subscribe();
     }
     
     return () => {
@@ -280,7 +228,7 @@ const MessagesPage = () => {
         supabase.removeChannel(channel);
       }
     };
-  }, [user, userType, currentDoctor, patientInfo, toast]);
+  }, [user, userType, currentDoctor, patientInfo, toast, navigate]);
   
   const filteredConversations = conversations.filter(
     conversation => conversation.name?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -289,8 +237,6 @@ const MessagesPage = () => {
   const handleConversationClick = (conversationId: string) => {
     if (userType === "doctor") {
       navigate(`/doctor/patients/${conversationId}/chat`);
-    } else {
-      navigate(`/patient/chat`);
     }
   };
   

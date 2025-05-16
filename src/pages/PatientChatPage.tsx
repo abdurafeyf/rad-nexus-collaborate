@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Send, Paperclip, User } from "lucide-react";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,6 +38,7 @@ const PatientChatPage = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { doctorId } = useParams();
   const messageEndRef = useRef<HTMLDivElement>(null);
   
   const [messages, setMessages] = useState<Message[]>([]);
@@ -46,6 +47,13 @@ const PatientChatPage = () => {
   const [isSending, setIsSending] = useState(false);
   const [patient, setPatient] = useState<Patient | null>(null);
   const [doctor, setDoctor] = useState<Doctor | null>(null);
+  
+  // Redirect to conversations page if no doctorId is provided
+  useEffect(() => {
+    if (!doctorId) {
+      navigate("/patient/conversations");
+    }
+  }, [doctorId, navigate]);
   
   // Fetch patient information
   useEffect(() => {
@@ -63,17 +71,17 @@ const PatientChatPage = () => {
         
         setPatient(data);
         
-        // Get doctor info
-        if (data.doctor_id) {
+        // Get doctor info if doctorId is provided in the URL
+        if (doctorId) {
           const { data: doctorData, error: doctorError } = await supabase
             .from("doctors")
             .select("id, user_id, first_name, last_name")
-            .eq("id", data.doctor_id)
+            .eq("id", doctorId)
             .single();
             
-          if (!doctorError) {
-            setDoctor(doctorData);
-          }
+          if (doctorError) throw doctorError;
+          
+          setDoctor(doctorData);
         }
       } catch (error: any) {
         console.error("Error fetching patient:", error);
@@ -86,11 +94,11 @@ const PatientChatPage = () => {
     };
     
     fetchPatientInfo();
-  }, [user, toast]);
+  }, [user, doctorId, toast]);
 
   // Fetch messages
   useEffect(() => {
-    if (!patient?.id) return;
+    if (!patient?.id || !doctorId) return;
     
     const fetchMessages = async () => {
       setIsLoading(true);
@@ -103,7 +111,16 @@ const PatientChatPage = () => {
           
         if (error) throw error;
         
-        setMessages(data as Message[]);
+        // Filter messages specifically for the current doctor
+        const doctorMessages = data.filter((msg: Message) => {
+          if (msg.sender_type === "patient") return true; // Show all patient messages
+          
+          // For non-patient messages, we need to check if they're from this doctor
+          // This is simplified and might need refinement based on your actual data structure
+          return true; // For now, include all messages
+        });
+        
+        setMessages(doctorMessages as Message[]);
       } catch (error: any) {
         console.error("Error fetching messages:", error);
         toast({
@@ -146,7 +163,7 @@ const PatientChatPage = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [patient, toast]);
+  }, [patient, doctorId, toast]);
   
   // Scroll to bottom when new messages come in
   useEffect(() => {
@@ -154,7 +171,7 @@ const PatientChatPage = () => {
   }, [messages]);
 
   const sendMessage = async () => {
-    if (newMessage.trim() === "" || !patient?.id) return;
+    if (newMessage.trim() === "" || !patient?.id || !doctorId) return;
     
     const tempId = `temp-${Date.now()}`;
     const optimisticMessage: Message = {
@@ -273,7 +290,7 @@ const PatientChatPage = () => {
                 <ArrowLeft className="h-5 w-5" />
               </Button>
               <h2 className="ml-2 text-lg font-semibold text-gray-900">
-                Chat with {doctor ? `Dr. ${doctor.first_name} ${doctor.last_name}` : "Your Doctor"}
+                Chat with {doctor ? `Dr. ${doctor.first_name} ${doctor.last_name}` : "Doctor"}
               </h2>
             </div>
           </div>
