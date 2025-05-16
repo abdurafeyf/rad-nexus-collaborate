@@ -45,6 +45,7 @@ type Patient = {
   notes?: string;
   updated_at?: string;
   updated_by?: string;
+  doctor_id?: string;
 };
 
 type ScanRecord = {
@@ -95,7 +96,7 @@ const DoctorDashboard = () => {
         throw new Error(error.message);
       }
 
-      return data as unknown as Patient[];
+      return data as Patient[];
     },
     enabled: !!user?.id,
   });
@@ -181,7 +182,7 @@ const DoctorDashboard = () => {
         ...report,
         scan_type: report.scan_records?.scan_type,
         patient_name: report.patients?.patients?.name,
-      })) as Report[];
+      }));
     },
     enabled: !!user?.id,
   });

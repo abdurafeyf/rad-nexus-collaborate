@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -46,6 +45,7 @@ type Patient = {
   notes?: string;
   updated_at?: string;
   updated_by?: string;
+  doctor_id?: string;
 };
 
 type ScanRecord = {
