@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Search, FileText, User, Calendar } from "lucide-react";
@@ -63,7 +64,7 @@ type Report = {
   scan_record_id: string;
   patient_id: string;
   content: string;
-  status: "draft" | "published";
+  status: string;
   created_at: string;
   updated_at: string;
   published_at: string | null;
@@ -182,7 +183,7 @@ const DoctorDashboard = () => {
         ...report,
         scan_type: report.scan_records?.scan_type,
         patient_name: report.patients?.patients?.name,
-      }));
+      })) as Report[];
     },
     enabled: !!user?.id,
   });
