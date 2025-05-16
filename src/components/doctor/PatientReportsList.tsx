@@ -77,7 +77,7 @@ const PatientReportsList: React.FC<PatientReportsListProps> = ({
                   <TableCell className="font-medium">{report.scan_type || "Unknown"}</TableCell>
                   <TableCell>
                     {report.status === "published" ? (
-                      <Badge className="bg-green-100 text-green-800 hover:bg-green-200">
+                      <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-200">
                         Published
                       </Badge>
                     ) : (

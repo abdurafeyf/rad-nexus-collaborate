@@ -112,24 +112,74 @@ const NewSidebar: React.FC<NewSidebarProps> = ({ type, children, className }) =>
   
   // Fix path matching to handle subpaths correctly
   const isPathActive = (path: string) => {
-    // For doctor dashboard or reports
-    if (path === "/doctor/dashboard" && location.pathname === "/doctor/dashboard") {
+    const currentPath = location.pathname;
+    
+    // For doctor dashboard
+    if (path === "/doctor/dashboard" && currentPath === "/doctor/dashboard") {
       return true;
     }
-    if (path === "/doctor/reports" && location.pathname.startsWith("/doctor/reports")) {
+    
+    // For doctor appointments
+    if (path === "/doctor/appointments" && currentPath.startsWith("/doctor/appointments")) {
+      return true;
+    }
+    
+    // For doctor messages
+    if (path === "/doctor/messages" && currentPath.startsWith("/doctor/messages")) {
+      return true;
+    }
+    
+    // For doctor patient chat
+    if (path === "/doctor/messages" && currentPath.includes("/doctor/patients/") && currentPath.includes("/chat")) {
+      return true;
+    }
+    
+    // For doctor reports
+    if (path === "/doctor/reports" && (currentPath === "/doctor/reports" || currentPath.startsWith("/doctor/reports/"))) {
+      return true;
+    }
+    
+    // For doctor AI chat
+    if (path === "/doctor/ai-chat" && currentPath.startsWith("/doctor/ai-chat")) {
+      return true;
+    }
+    
+    // For doctor settings
+    if (path === "/doctor/settings" && currentPath.startsWith("/doctor/settings")) {
       return true;
     }
     
     // For patient portal paths
-    if (path === "/patient" && ["/patient", "/patient/dashboard", "/patient/portal"].includes(location.pathname)) {
+    if (path === "/patient" && ["/patient", "/patient/dashboard", "/patient/portal"].includes(currentPath)) {
       return true;
     }
     
-    // For all other paths
-    return path !== "/doctor/dashboard" && 
-           path !== "/doctor/reports" && 
-           path !== "/patient" && 
-           location.pathname.startsWith(path);
+    // For patient appointments
+    if (path === "/patient/appointments" && currentPath.startsWith("/patient/appointments")) {
+      return true;
+    }
+    
+    // For patient chat
+    if (path === "/patient/chat" && (currentPath === "/patient/chat" || currentPath.startsWith("/patient/chat/") || currentPath.includes("/patient/conversations"))) {
+      return true;
+    }
+    
+    // For patient AI chat
+    if (path === "/patient/ai-chat" && currentPath.startsWith("/patient/ai-chat")) {
+      return true;
+    }
+    
+    // For patient reports
+    if (path === "/patient/reports" && (currentPath === "/patient/reports" || currentPath.startsWith("/patient/reports/"))) {
+      return true;
+    }
+    
+    // For patient settings
+    if (path === "/patient/settings" && currentPath.startsWith("/patient/settings")) {
+      return true;
+    }
+    
+    return false;
   };
   
   // Mobile toggle

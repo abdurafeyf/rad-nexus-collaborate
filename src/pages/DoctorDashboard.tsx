@@ -160,7 +160,7 @@ const DoctorDashboard = () => {
       }
 
       console.log("Doctor scan IDs:", doctorScans);
-      if (!doctorScans.length) {
+      if (!doctorScans || doctorScans.length === 0) {
         return [];
       }
 
@@ -493,7 +493,7 @@ const DoctorDashboard = () => {
                           <TableCell>{report.scan_type || "Unknown"}</TableCell>
                           <TableCell>
                             {report.status === "published" ? (
-                              <Badge className="bg-green-100 text-green-800 hover:bg-green-200">
+                              <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-200">
                                 Published
                               </Badge>
                             ) : (
