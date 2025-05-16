@@ -43,8 +43,12 @@ interface Availability {
   is_available: boolean;
 }
 
-const DoctorAvailabilitySettings: React.FC = () => {
-  const [doctorId, setDoctorId] = useState<string | null>(null);
+interface DoctorAvailabilitySettingsProps {
+  doctorId?: string;
+}
+
+const DoctorAvailabilitySettings: React.FC<DoctorAvailabilitySettingsProps> = ({ doctorId: propDoctorId }) => {
+  const [doctorId, setDoctorId] = useState<string | null>(propDoctorId || null);
   const [isLoading, setIsLoading] = useState(false);
   const [availability, setAvailability] = useState<Record<string, Availability>>({});
   const [selectedDay, setSelectedDay] = useState("1"); // Default to Monday
@@ -53,8 +57,14 @@ const DoctorAvailabilitySettings: React.FC = () => {
   const [isAvailable, setIsAvailable] = useState(true);
   const { toast } = useToast();
 
-  // Fetch doctor ID when component loads
+  // Fetch doctor ID when component loads if not provided
   useEffect(() => {
+    if (propDoctorId) {
+      setDoctorId(propDoctorId);
+      fetchAvailability(propDoctorId);
+      return;
+    }
+    
     const fetchDoctorId = async () => {
       try {
         const { data: userData } = await supabase.auth.getUser();
@@ -71,7 +81,7 @@ const DoctorAvailabilitySettings: React.FC = () => {
     };
     
     fetchDoctorId();
-  }, []);
+  }, [propDoctorId]);
 
   // Fetch doctor's availability
   const fetchAvailability = async (docId: string) => {

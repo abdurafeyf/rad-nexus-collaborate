@@ -87,6 +87,16 @@ const AppointmentsPage: React.FC = () => {
     location?: string;
     requesterType: 'doctor' | 'patient';
   }) => {
+    // Only allow patients to create appointment requests
+    if (data.requesterType !== 'patient' && userType !== 'patient') {
+      toast({
+        title: "Operation not allowed",
+        description: "Only patients can request appointments with doctors.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     const result = await scheduleAppointment(
       data.doctorId,
       data.patientId,
@@ -95,22 +105,43 @@ const AppointmentsPage: React.FC = () => {
       data.appointmentTime,
       30,
       data.location,
-      data.requesterType
+      'patient' // Force requesterType to be 'patient' to ensure one-way flow
     );
     
     if (result) {
-      const userText = data.requesterType === 'doctor' ? 'patient' : 'doctor';
       toast({
         title: "Appointment requested",
-        description: `Your appointment has been requested and is pending approval from the ${userText}.`
+        description: "Your appointment has been requested and is pending approval from the doctor."
       });
     }
   };
 
   // Handle status updates
   const handleStatusChange = async (id: string, status: 'scheduled' | 'completed' | 'cancelled' | 'rescheduled' | 'pending_doctor' | 'pending_patient', reason?: string) => {
+    // Validate that only doctors can approve/reject appointments
+    if ((status === 'scheduled' || status === 'cancelled') && userType !== 'doctor' && status === 'pending_doctor') {
+      toast({
+        title: "Operation not allowed",
+        description: "Only doctors can approve or reject appointment requests.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     await updateAppointmentStatus(id, status, reason);
     refreshAppointments();
+    
+    if (status === 'scheduled') {
+      toast({
+        title: "Appointment approved",
+        description: "You have approved the appointment request."
+      });
+    } else if (status === 'cancelled') {
+      toast({
+        title: "Appointment declined",
+        description: "You have declined the appointment request."
+      });
+    }
   };
 
   // Get pending appointment counts
@@ -138,7 +169,7 @@ const AppointmentsPage: React.FC = () => {
               )}
             </TabsTrigger>
             <TabsTrigger value="schedule">
-              {userType === 'doctor' ? 'Schedule Appointment' : 'Request Appointment'}
+              {userType === 'doctor' ? 'View Requests' : 'Request Appointment'}
             </TabsTrigger>
             {userType === 'doctor' && (
               <TabsTrigger value="availability">Manage Availability</TabsTrigger>
@@ -172,20 +203,45 @@ const AppointmentsPage: React.FC = () => {
                 <AppointmentCalendar 
                   selectedDate={selectedDate}
                   onDateSelect={handleDateSelect}
-                  availableDays={availableDates}
+                  availableDays={userType === 'patient' ? availableDates : []}
                 />
               </div>
               <div className="md:col-span-2">
-                <AppointmentForm 
-                  userType={userType}
-                  selectedDate={selectedDate}
-                  doctorId={doctorId}
-                  doctorsList={doctors}
-                  availableTimeSlots={availableTimeSlots}
-                  isLoadingTimeSlots={isLoading}
-                  onDoctorSelect={handleDoctorSelect}
-                  onSubmit={handleCreateAppointment}
-                />
+                {userType === 'patient' ? (
+                  <AppointmentForm 
+                    userType={userType}
+                    selectedDate={selectedDate}
+                    doctorId={doctorId}
+                    doctorsList={doctors}
+                    availableTimeSlots={availableTimeSlots}
+                    isLoadingTimeSlots={isLoading}
+                    onDoctorSelect={handleDoctorSelect}
+                    onSubmit={handleCreateAppointment}
+                  />
+                ) : (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Appointment Requests</CardTitle>
+                      <CardDescription>
+                        View and manage appointment requests from patients.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <AppointmentList 
+                        appointments={appointments.filter(apt => apt.status === 'pending_doctor')}
+                        isLoading={isLoading}
+                        userType={userType}
+                        onStatusChange={handleStatusChange}
+                        showPendingOnly
+                      />
+                      {appointments.filter(apt => apt.status === 'pending_doctor').length === 0 && (
+                        <div className="text-center py-8 text-gray-500">
+                          No pending appointment requests.
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
               </div>
             </div>
           </TabsContent>
@@ -217,7 +273,7 @@ const AppointmentsPage: React.FC = () => {
                   </Card>
                 </div>
                 <div className="md:col-span-2">
-                  <DoctorAvailabilitySettings />
+                  <DoctorAvailabilitySettings doctorId={doctorId} />
                 </div>
               </div>
             </TabsContent>

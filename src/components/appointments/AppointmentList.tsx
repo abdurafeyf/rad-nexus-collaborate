@@ -23,13 +23,15 @@ interface AppointmentListProps {
   isLoading: boolean;
   userType: 'doctor' | 'patient';
   onStatusChange: (id: string, status: 'scheduled' | 'completed' | 'cancelled' | 'rescheduled' | 'pending_doctor' | 'pending_patient', reason?: string) => void;
+  showPendingOnly?: boolean;
 }
 
 const AppointmentList: React.FC<AppointmentListProps> = ({ 
   appointments, 
   isLoading, 
   userType,
-  onStatusChange
+  onStatusChange,
+  showPendingOnly = false
 }) => {
   const [cancelReason, setCancelReason] = useState('');
   const [selectedAppointment, setSelectedAppointment] = useState<string | null>(null);
@@ -146,7 +148,7 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
             
             {!isPastAppointment && (
               <div className="mt-4 flex gap-2 justify-end">
-                {/* Doctor approval for pending appointments */}
+                {/* Doctor can approve or reject pending appointments */}
                 {userType === 'doctor' && appointment.status === 'pending_doctor' && (
                   <>
                     <Button 
@@ -198,59 +200,14 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
                   </>
                 )}
                 
-                {/* Patient approval for pending appointments */}
-                {userType === 'patient' && appointment.status === 'pending_patient' && (
-                  <>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => onStatusChange(appointment.id, 'scheduled')}
-                      className="text-green-600 border-green-200 hover:bg-green-50"
-                    >
-                      <CheckCircle className="h-4 w-4 mr-1" />
-                      Approve
-                    </Button>
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          className="text-red-600 border-red-200 hover:bg-red-50"
-                        >
-                          <XCircle className="h-4 w-4 mr-1" />
-                          Decline
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Decline Appointment</DialogTitle>
-                          <DialogDescription>
-                            Please provide a reason for declining this appointment.
-                          </DialogDescription>
-                        </DialogHeader>
-                        <Textarea 
-                          placeholder="Reason for declining..."
-                          className="mt-2"
-                          value={cancelReason}
-                          onChange={(e) => setCancelReason(e.target.value)}
-                        />
-                        <div className="flex justify-end gap-2 mt-4">
-                          <Button
-                            variant="destructive"
-                            onClick={() => {
-                              onStatusChange(appointment.id, 'cancelled', cancelReason);
-                              setCancelReason('');
-                            }}
-                          >
-                            Decline Appointment
-                          </Button>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  </>
+                {/* Patient can see pending status but cannot approve their own appointments */}
+                {userType === 'patient' && appointment.status === 'pending_doctor' && (
+                  <div className="text-sm text-amber-600 italic">
+                    Waiting for doctor approval
+                  </div>
                 )}
                 
-                {/* For scheduled appointments that can be completed or cancelled */}
+                {/* For scheduled appointments that can be cancelled */}
                 {appointment.status === 'scheduled' && (
                   <>
                     <Dialog>
@@ -317,7 +274,11 @@ const AppointmentList: React.FC<AppointmentListProps> = ({
     <Card className="h-full">
       <CardHeader className="pb-2">
         <CardTitle className="text-lg">
-          {userType === 'doctor' ? 'Patient Appointments' : 'Your Appointments'}
+          {showPendingOnly 
+            ? "Pending Appointment Requests" 
+            : userType === 'doctor' 
+              ? 'Patient Appointments' 
+              : 'Your Appointments'}
         </CardTitle>
       </CardHeader>
       <ScrollArea className="h-[500px]">
