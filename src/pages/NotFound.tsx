@@ -1,11 +1,28 @@
 
-import React from "react";
-import { Link } from "react-router-dom";
+import React, { useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import NavBar from "@/components/NavBar";
 import Footer from "@/components/Footer";
+import { useAuth } from "@/contexts/AuthContext";
 
 const NotFound = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  
+  // Check if we should redirect based on user type
+  useEffect(() => {
+    // If the user is authenticated but landed on 404, redirect to their dashboard
+    if (user) {
+      const userType = user.user_metadata?.user_type;
+      if (userType === "doctor") {
+        navigate("/doctor/dashboard", { replace: true });
+      } else if (userType === "patient") {
+        navigate("/patient/portal", { replace: true });
+      }
+    }
+  }, [user, navigate]);
+
   return (
     <div className="flex min-h-screen flex-col">
       <NavBar />

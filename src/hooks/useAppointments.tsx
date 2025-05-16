@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { addDays, format, parseISO, startOfDay, isSameDay } from "date-fns";
 import { useToast } from "@/components/ui/use-toast";
@@ -69,26 +68,60 @@ export const useAppointments = (userType: 'doctor' | 'patient') => {
           .order("appointment_date", { ascending: true });
       } else {
         // For patients
-        const { data: currentUserEmail } = await supabase.auth.getUser();
-        if (!currentUserEmail.user?.email) throw new Error("No authenticated user found");
+        const userId = await getCurrentUserId();
+        if (!userId) throw new Error("No authenticated user found");
         
-        // Get patient ID from email
-        const { data: patientData } = await supabase
+        // Get patient ID from the users table matching the user ID
+        const { data: patientData, error: patientError } = await supabase
           .from("patients")
           .select("id")
-          .eq("email", currentUserEmail.user.email)
-          .single();
+          .eq("email", userId)
+          .maybeSingle();
         
-        if (!patientData) throw new Error("Patient record not found");
+        if (patientError) {
+          console.error("Error fetching patient data:", patientError);
+          throw new Error("Error fetching patient data");
+        }
         
-        query = supabase
-          .from("appointments")
-          .select(`
-            *,
-            doctors:doctor_id (first_name, last_name)
-          `)
-          .eq("patient_id", patientData.id)
-          .order("appointment_date", { ascending: true });
+        if (!patientData) {
+          // Try to get user email from auth
+          const { data: currentUserData } = await supabase.auth.getUser();
+          if (!currentUserData.user?.email) throw new Error("No authenticated user found");
+          
+          // Get patient ID from email
+          const { data: patientByEmail, error: emailError } = await supabase
+            .from("patients")
+            .select("id")
+            .eq("email", currentUserData.user.email)
+            .maybeSingle();
+          
+          if (emailError) {
+            console.error("Error fetching patient by email:", emailError);
+            throw new Error("Patient record not found");
+          }
+          
+          if (!patientByEmail) {
+            throw new Error("Patient record not found");
+          }
+          
+          query = supabase
+            .from("appointments")
+            .select(`
+              *,
+              doctors:doctor_id (first_name, last_name)
+            `)
+            .eq("patient_id", patientByEmail.id)
+            .order("appointment_date", { ascending: true });
+        } else {
+          query = supabase
+            .from("appointments")
+            .select(`
+              *,
+              doctors:doctor_id (first_name, last_name)
+            `)
+            .eq("patient_id", patientData.id)
+            .order("appointment_date", { ascending: true });
+        }
       }
 
       const { data, error } = await query;
@@ -463,7 +496,7 @@ export const useAppointments = (userType: 'doctor' | 'patient') => {
     fetchAvailableDaysForDoctor,
     scheduleAppointment,
     updateAppointmentStatus,
-    setDoctorAvailability,
+    setDoctorAvailability: userType === 'doctor' ? setDoctorAvailability : undefined,
     refreshAppointments: fetchAppointments
   };
 };
