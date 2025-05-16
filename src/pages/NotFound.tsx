@@ -18,7 +18,7 @@ const NotFound = () => {
       if (userType === "doctor") {
         navigate("/doctor/dashboard", { replace: true });
       } else if (userType === "patient") {
-        navigate("/patient/portal", { replace: true });
+        navigate("/patient", { replace: true });  // Changed from /patient/portal to just /patient
       }
     }
   }, [user, navigate]);

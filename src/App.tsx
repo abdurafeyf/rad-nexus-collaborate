@@ -123,6 +123,22 @@ function App() {
               }
             />
             <Route
+              path="/patient/portal"
+              element={
+                <ProtectedRoute userType="patient">
+                  <PatientPortal />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/patient/dashboard"
+              element={
+                <ProtectedRoute userType="patient">
+                  <PatientPortal />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/patient/reports/:reportId"
               element={
                 <ProtectedRoute userType="patient">
