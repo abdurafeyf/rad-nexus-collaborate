@@ -59,7 +59,7 @@ function App() {
             <Route
               path="/doctor/dashboard"
               element={
-                <ProtectedRoute allowedUserTypes={["doctor"]}>
+                <ProtectedRoute userType="doctor">
                   <DoctorDashboard />
                 </ProtectedRoute>
               }
@@ -67,7 +67,7 @@ function App() {
             <Route
               path="/doctor/patients/:patientId"
               element={
-                <ProtectedRoute allowedUserTypes={["doctor"]}>
+                <ProtectedRoute userType="doctor">
                   <PatientDetail />
                 </ProtectedRoute>
               }
@@ -75,7 +75,7 @@ function App() {
             <Route
               path="/doctor/add-patient"
               element={
-                <ProtectedRoute allowedUserTypes={["doctor"]}>
+                <ProtectedRoute userType="doctor">
                   <AddPatientPage />
                 </ProtectedRoute>
               }
@@ -83,7 +83,7 @@ function App() {
             <Route
               path="/doctor/reports/:reportId"
               element={
-                <ProtectedRoute allowedUserTypes={["doctor"]}>
+                <ProtectedRoute userType="doctor">
                   <ReportReview />
                 </ProtectedRoute>
               }
@@ -91,7 +91,7 @@ function App() {
             <Route
               path="/doctor/messages"
               element={
-                <ProtectedRoute allowedUserTypes={["doctor"]}>
+                <ProtectedRoute userType="doctor">
                   <MessagesPage />
                 </ProtectedRoute>
               }
@@ -99,15 +99,15 @@ function App() {
             <Route
               path="/doctor/patients/:patientId/chat"
               element={
-                <ProtectedRoute allowedUserTypes={["doctor"]}>
-                  <PatientChat />
+                <ProtectedRoute userType="doctor">
+                  <PatientChatPage />
                 </ProtectedRoute>
               }
             />
             <Route
               path="/doctor/ai-chat"
               element={
-                <ProtectedRoute allowedUserTypes={["doctor"]}>
+                <ProtectedRoute userType="doctor">
                   <DoctorAiChat />
                 </ProtectedRoute>
               }
@@ -117,7 +117,7 @@ function App() {
             <Route
               path="/patient"
               element={
-                <ProtectedRoute allowedUserTypes={["patient"]}>
+                <ProtectedRoute userType="patient">
                   <PatientPortal />
                 </ProtectedRoute>
               }
@@ -125,7 +125,7 @@ function App() {
             <Route
               path="/patient/reports/:reportId"
               element={
-                <ProtectedRoute allowedUserTypes={["patient"]}>
+                <ProtectedRoute userType="patient">
                   <PatientReport />
                 </ProtectedRoute>
               }
@@ -133,7 +133,7 @@ function App() {
             <Route
               path="/patient/upload"
               element={
-                <ProtectedRoute allowedUserTypes={["patient"]}>
+                <ProtectedRoute userType="patient">
                   <ScanUpload />
                 </ProtectedRoute>
               }
@@ -141,7 +141,7 @@ function App() {
             <Route
               path="/patient/conversations"
               element={
-                <ProtectedRoute allowedUserTypes={["patient"]}>
+                <ProtectedRoute userType="patient">
                   <PatientConversationsPage />
                 </ProtectedRoute>
               }
@@ -149,7 +149,7 @@ function App() {
             <Route
               path="/patient/chat/:doctorId"
               element={
-                <ProtectedRoute allowedUserTypes={["patient"]}>
+                <ProtectedRoute userType="patient">
                   <PatientChatPage />
                 </ProtectedRoute>
               }
@@ -157,7 +157,7 @@ function App() {
             <Route
               path="/patient/chat"
               element={
-                <ProtectedRoute allowedUserTypes={["patient"]}>
+                <ProtectedRoute userType="patient">
                   <PatientConversationsPage />
                 </ProtectedRoute>
               }
@@ -165,7 +165,7 @@ function App() {
             <Route
               path="/patient/ai-chat"
               element={
-                <ProtectedRoute allowedUserTypes={["patient"]}>
+                <ProtectedRoute userType="patient">
                   <PatientAiChat />
                 </ProtectedRoute>
               }

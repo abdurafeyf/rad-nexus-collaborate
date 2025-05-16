@@ -6,10 +6,11 @@ import { Loader2 } from 'lucide-react';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
+  allowedUserTypes?: string[];
   userType?: 'doctor' | 'patient' | 'admin';
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, userType }) => {
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, userType, allowedUserTypes }) => {
   const { user, userType: currentUserType, loading } = useAuth();
   const location = useLocation();
 
@@ -39,6 +40,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, userType }) =
   if (userType && currentUserType && currentUserType !== userType) {
     // If user is trying to access a page they're not authorized for,
     // redirect them to their appropriate dashboard
+    return <Navigate to={`/${currentUserType}/dashboard`} replace />;
+  }
+
+  // Check if the user type is in the allowed user types array
+  if (allowedUserTypes && currentUserType && !allowedUserTypes.includes(currentUserType)) {
     return <Navigate to={`/${currentUserType}/dashboard`} replace />;
   }
 

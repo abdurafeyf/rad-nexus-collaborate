@@ -89,7 +89,7 @@ const DoctorConversationsList = ({ patientId }: DoctorConversationsListProps) =>
             sender_type,
             message,
             created_at,
-            scan_records:patient_id!scan_records_patient_id_fkey (
+            scan_records (
               doctor_id,
               doctors:doctor_id (
                 id,
