@@ -8,6 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import VoiceInput from "./VoiceInput";
 
 interface ScanUploaderProps {
   patientId: string;
@@ -29,6 +31,8 @@ const ACCEPTED_FILE_TYPES = ".jpg,.jpeg,.png,.dcm,.dicom,.pdf";
 
 const ScanUploader: React.FC<ScanUploaderProps> = ({ patientId, patientName, doctorId, onComplete }) => {
   const [fileStatuses, setFileStatuses] = useState<FileUploadStatus[]>([]);
+  const [voiceNotes, setVoiceNotes] = useState<string>("");
+  const [isVoiceLoading, setIsVoiceLoading] = useState<boolean>(false);
   const { toast } = useToast();
   const navigate = useNavigate();
   
@@ -46,6 +50,10 @@ const ScanUploader: React.FC<ScanUploaderProps> = ({ patientId, patientName, doc
     
     // Reset the file input
     e.target.value = '';
+  };
+
+  const handleTranscriptReceived = (transcript: string) => {
+    setVoiceNotes(transcript);
   };
 
   const processFile = async (file: File) => {
@@ -121,7 +129,7 @@ const ScanUploader: React.FC<ScanUploaderProps> = ({ patientId, patientName, doc
             doctor_id: doctorId,
             visibility: "both",
             uploaded_by: doctorId, // Using doctorId as uploaded_by
-            notes: `${scanType} scan of ${patientName}`
+            notes: voiceNotes || `${scanType} scan of ${patientName}`
           }
         ])
         .select()
@@ -165,7 +173,8 @@ const ScanUploader: React.FC<ScanUploaderProps> = ({ patientId, patientName, doc
                 patientName,
                 patientId,
                 scanType,
-                fileName: file.name
+                fileName: file.name,
+                voiceNotes: voiceNotes // Include voice transcription in report generation
               })
             });
             
@@ -254,7 +263,7 @@ const ScanUploader: React.FC<ScanUploaderProps> = ({ patientId, patientName, doc
             {
               scan_record_id: scanData.id,
               patient_id: patientId,
-              content: `# ${scanType} File Uploaded\n\nFile: ${file.name}\nUploaded: ${new Date().toLocaleString()}\n\nThis file type requires manual review by a medical professional.`,
+              content: `# ${scanType} File Uploaded\n\nFile: ${file.name}\nUploaded: ${new Date().toLocaleString()}\n\n${voiceNotes ? `Doctor's Voice Notes: ${voiceNotes}\n\n` : ''}This file type requires manual review by a medical professional.`,
               status: 'draft',
               hospital_name: 'Radixpert Medical Center',
               generated_at: new Date().toISOString()
@@ -304,7 +313,7 @@ const ScanUploader: React.FC<ScanUploaderProps> = ({ patientId, patientName, doc
 
   return (
     <div className="space-y-6">
-      <div className="space-y-2">
+      <div className="space-y-4">
         <Label htmlFor="scan-upload">Upload Scans (Images, PDFs, DICOM)</Label>
         <div 
           className="border-2 border-dashed border-gray-300 rounded-lg p-8 cursor-pointer hover:bg-gray-50 transition-all flex flex-col items-center justify-center"
@@ -326,6 +335,30 @@ const ScanUploader: React.FC<ScanUploaderProps> = ({ patientId, patientName, doc
             onChange={handleFileChange}
           />
         </div>
+      </div>
+      
+      <div className="space-y-4 border rounded-lg p-5 bg-gray-50">
+        <h3 className="font-medium text-gray-700">Voice Notes</h3>
+        <p className="text-sm text-gray-500">Record notes about the scan to include in the report</p>
+        
+        <VoiceInput 
+          onTranscriptReceived={handleTranscriptReceived}
+          isLoading={isVoiceLoading}
+          setIsLoading={setIsVoiceLoading}
+        />
+        
+        {voiceNotes && (
+          <div className="space-y-2">
+            <Label htmlFor="voice-notes">Transcript</Label>
+            <Textarea
+              id="voice-notes"
+              value={voiceNotes}
+              onChange={(e) => setVoiceNotes(e.target.value)}
+              className="min-h-[100px]"
+              placeholder="Voice transcription will appear here..."
+            />
+          </div>
+        )}
       </div>
       
       {fileStatuses.length > 0 && (
