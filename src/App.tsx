@@ -1,4 +1,3 @@
-
 import { Routes, Route } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -85,6 +84,14 @@ function App() {
               element={
                 <ProtectedRoute userType="doctor">
                   <ReportReview />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/doctor/reports"
+              element={
+                <ProtectedRoute userType="doctor">
+                  <DoctorDashboard />
                 </ProtectedRoute>
               }
             />

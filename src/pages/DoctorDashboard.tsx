@@ -1,34 +1,16 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { format } from "date-fns";
-import {
-  ArrowUpDown,
-  Edit,
-  Plus,
-  RefreshCw,
-  Search,
-  Trash2,
-  X,
-  ToggleRight,
-  ToggleLeft,
-} from "lucide-react";
-import { supabase, deletePatient } from "@/integrations/supabase/client";
+import { Plus, Search, FileText, User, Calendar } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -37,473 +19,495 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { format } from "date-fns";
 import NewSidebar from "@/components/NewSidebar";
-import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { useQuery } from "@tanstack/react-query";
 
-// Define the patient type based on the database schema
 type Patient = {
   id: string;
   name: string;
   email: string;
-  date_of_birth: string | null;
-  gender: string | null;
-  notes: string | null;
-  status: "active" | "passive";
-  last_visit: string;
+  date_of_birth: string;
+  gender: string;
+  phone_number: string;
+  address: string;
   created_at: string;
-  doctor_id: string;
 };
 
-type Doctor = {
+type ScanRecord = {
   id: string;
-  user_id: string;
-  first_name: string;
-  last_name: string;
-  email: string;
+  patient_id: string;
+  scan_type: string;
+  date_taken: string;
+  file_url: string;
+  created_at: string;
+  patient_name?: string;
+};
+
+type Report = {
+  id: string;
+  scan_record_id: string;
+  patient_id: string;
+  content: string;
+  status: "draft" | "published";
+  created_at: string;
+  updated_at: string;
+  published_at: string | null;
+  patient_name?: string;
+  scan_type?: string;
 };
 
 const DoctorDashboard = () => {
-  const { toast } = useToast();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const { user } = useAuth();
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "passive">("all");
-  const [sortConfig, setSortConfig] = useState<{
-    key: keyof Patient;
-    direction: "asc" | "desc";
-  }>({ key: "last_visit", direction: "desc" });
-  const [currentDoctor, setCurrentDoctor] = useState<Doctor | null>(null);
-  const [hoveredRow, setHoveredRow] = useState<string | null>(null);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [patientToDelete, setPatientToDelete] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activeTab, setActiveTab] = useState("patients");
 
-  // First fetch the current doctor's info
-  useEffect(() => {
-    const fetchDoctorInfo = async () => {
-      if (!user) return;
-      
-      try {
-        const { data, error } = await supabase
-          .from("doctors")
-          .select("*")
-          .eq("user_id", user.id)
-          .single();
-          
-        if (error) throw error;
-        
-        setCurrentDoctor(data as Doctor);
-      } catch (error: any) {
-        console.error("Error fetching doctor info:", error);
-        toast({
-          title: "Error",
-          description: "Could not fetch doctor information.",
-          variant: "destructive",
-        });
-      }
-    };
-    
-    fetchDoctorInfo();
-  }, [user]);
-
-  // Fetch patients data once we have the doctor's ID
-  useEffect(() => {
-    if (!currentDoctor) return;
-    fetchPatients();
-  }, [currentDoctor]);
-
-  // Handle patient deletion
-  const handleDeletePatient = async (id: string) => {
-    setPatientToDelete(id);
-    setShowDeleteDialog(true);
-  };
-
-  const confirmDeletePatient = async () => {
-    if (!patientToDelete) return;
-    
-    try {
-      const { success, error } = await deletePatient(patientToDelete);
-      
-      if (success) {
-        setPatients((prev) => prev.filter((patient) => patient.id !== patientToDelete));
-        
-        toast({
-          title: "Success",
-          description: "Patient and all associated records have been deleted.",
-        });
-      } else {
-        throw new Error(error);
-      }
-    } catch (error: any) {
-      toast({
-        title: "Error deleting patient",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setShowDeleteDialog(false);
-      setPatientToDelete(null);
-    }
-  };
-
-  // Handle patient status toggle
-  const handleToggleStatus = async (id: string, currentStatus: "active" | "passive") => {
-    const newStatus = currentStatus === "active" ? "passive" : "active";
-    try {
-      const { error } = await supabase
-        .from("patients")
-        .update({ status: newStatus })
-        .eq("id", id);
-
-      if (error) {
-        throw error;
-      }
-
-      setPatients((prev) =>
-        prev.map((patient) =>
-          patient.id === id ? { ...patient, status: newStatus } : patient
-        )
-      );
-      
-      toast({
-        title: "Status updated",
-        description: `Patient status changed to ${newStatus}.`,
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error updating status",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  };
-
-  // Handle sort
-  const handleSort = (key: keyof Patient) => {
-    const direction = sortConfig.key === key && sortConfig.direction === "asc" ? "desc" : "asc";
-    setSortConfig({ key, direction });
-  };
-
-  // Clear search input
-  const handleClearSearch = () => {
-    setSearchQuery("");
-  };
-
-  // Apply sorting and filtering
-  const sortedAndFilteredPatients = [...patients]
-    .filter((patient) => {
-      // Status filter
-      if (statusFilter !== "all" && patient.status !== statusFilter) {
-        return false;
-      }
-      
-      // Search filter
-      if (!searchQuery) return true;
-      return (
-        patient.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        patient.email.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    })
-    .sort((a, b) => {
-      if (sortConfig.key === "last_visit") {
-        return sortConfig.direction === "asc"
-          ? new Date(a.last_visit).getTime() - new Date(b.last_visit).getTime()
-          : new Date(b.last_visit).getTime() - new Date(a.last_visit).getTime();
-      }
-      
-      const aValue = a[sortConfig.key];
-      const bValue = b[sortConfig.key];
-      
-      if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
-      if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
-      return 0;
-    });
-
-  // Manual refresh function
-  const fetchPatients = async () => {
-    if (!currentDoctor) return;
-    
-    setIsLoading(true);
-    try {
+  // Fetch patients
+  const {
+    data: patients = [],
+    isLoading: isLoadingPatients,
+    error: patientsError,
+  } = useQuery({
+    queryKey: ["doctorPatients", user?.id],
+    queryFn: async () => {
       const { data, error } = await supabase
         .from("patients")
         .select("*")
-        .eq("doctor_id", currentDoctor.id);
+        .eq("doctor_id", user?.id)
+        .order("created_at", { ascending: false });
 
       if (error) {
-        throw error;
+        throw new Error(error.message);
       }
 
-      setPatients(data as Patient[]);
-    } catch (error: any) {
+      return data as Patient[];
+    },
+    enabled: !!user?.id,
+  });
+
+  // Fetch scan records
+  const {
+    data: scanRecords = [],
+    isLoading: isLoadingScans,
+    error: scansError,
+  } = useQuery({
+    queryKey: ["doctorScans", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("scan_records")
+        .select(`
+          *,
+          patients (
+            name
+          )
+        `)
+        .eq("doctor_id", user?.id)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      return data.map((record) => ({
+        ...record,
+        patient_name: record.patients?.name,
+      })) as ScanRecord[];
+    },
+    enabled: !!user?.id,
+  });
+
+  // Fetch reports
+  const {
+    data: reports = [],
+    isLoading: isLoadingReports,
+    error: reportsError,
+  } = useQuery({
+    queryKey: ["doctorReports", user?.id],
+    queryFn: async () => {
+      // First get all scan records by this doctor
+      const { data: doctorScans, error: scansError } = await supabase
+        .from("scan_records")
+        .select("id")
+        .eq("doctor_id", user?.id);
+
+      if (scansError) {
+        throw new Error(scansError.message);
+      }
+
+      if (!doctorScans.length) {
+        return [];
+      }
+
+      const scanIds = doctorScans.map((scan) => scan.id);
+
+      // Then get all reports for these scan records
+      const { data: reportData, error: reportsError } = await supabase
+        .from("reports")
+        .select(`
+          *,
+          scan_records (
+            scan_type,
+            patient_id
+          ),
+          patients:scan_records(
+            patients (
+              name
+            )
+          )
+        `)
+        .in("scan_record_id", scanIds)
+        .order("created_at", { ascending: false });
+
+      if (reportsError) {
+        throw new Error(reportsError.message);
+      }
+
+      return reportData.map((report) => ({
+        ...report,
+        scan_type: report.scan_records?.scan_type,
+        patient_name: report.patients?.patients?.name,
+      })) as Report[];
+    },
+    enabled: !!user?.id,
+  });
+
+  // Filter data based on search term
+  const filteredPatients = patients.filter((patient) =>
+    patient.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const filteredScans = scanRecords.filter(
+    (scan) =>
+      scan.patient_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      scan.scan_type.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const filteredReports = reports.filter(
+    (report) =>
+      report.patient_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      report.scan_type?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Handle errors
+  useEffect(() => {
+    if (patientsError) {
       toast({
-        title: "Error fetching patients",
-        description: error.message,
+        title: "Error loading patients",
+        description: (patientsError as Error).message,
         variant: "destructive",
       });
-    } finally {
-      setIsLoading(false);
     }
+
+    if (scansError) {
+      toast({
+        title: "Error loading scan records",
+        description: (scansError as Error).message,
+        variant: "destructive",
+      });
+    }
+
+    if (reportsError) {
+      toast({
+        title: "Error loading reports",
+        description: (reportsError as Error).message,
+        variant: "destructive",
+      });
+    }
+  }, [patientsError, scansError, reportsError]);
+
+  // Navigate to patient details
+  const handlePatientClick = (patientId: string) => {
+    navigate(`/doctor/patients/${patientId}`);
   };
 
-  // Helper function to get patient initials for avatar
-  const getPatientInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map(part => part[0])
-      .join('')
-      .toUpperCase()
-      .substring(0, 2);
+  // Navigate to report review
+  const handleReportClick = (reportId: string) => {
+    navigate(`/doctor/reports/${reportId}`);
   };
 
   return (
     <NewSidebar type="doctor">
-      <div className="flex min-h-screen flex-col bg-gray-50">
-        <div className="p-4 md:p-6">
-          <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-gray-900">Doctor Dashboard</h1>
-              <p className="text-sm text-gray-600">
-                Manage your patients and their records
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                onClick={() => fetchPatients()}
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-1"
-              >
-                <RefreshCw className="h-4 w-4" />
-                Refresh
-              </Button>
-              <Button
-                onClick={() => navigate("/doctor/add-patient")}
-                size="sm"
-                className="flex items-center gap-1"
-              >
-                <Plus className="h-4 w-4" />
-                Add Patient
-              </Button>
-            </div>
+      <div className="container mx-auto py-8 px-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold mb-1">Doctor Dashboard</h1>
+            <p className="text-gray-500">
+              Manage your patients, scans, and reports
+            </p>
           </div>
 
-          <Card className="overflow-hidden border border-gray-100 shadow-sm">
-            <div className="flex flex-col gap-2 p-3 md:flex-row md:items-center md:justify-between">
-              <div className="relative flex-grow">
-                <div className="relative flex w-full md:w-80">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-                  <Input
-                    placeholder="Search by name or email..."
-                    className="pl-8 pr-8 border border-gray-200 focus:border-teal-500 focus:ring-1 focus:ring-teal-200"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                  {searchQuery && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-0 top-0 h-9 w-9 text-gray-500 hover:text-gray-800"
-                      onClick={handleClearSearch}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Select 
-                  value={statusFilter}
-                  onValueChange={(value) => setStatusFilter(value as any)}
-                >
-                  <SelectTrigger className="w-[130px] border border-gray-200">
-                    <SelectValue placeholder="Filter by status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Patients</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="passive">Closed</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
-                      <TableHead className="w-[240px]">
-                        <div className="flex items-center gap-1">
-                          Patient
-                        </div>
-                      </TableHead>
-                      <TableHead>
-                        <div className="flex items-center gap-1">
-                          Email
-                        </div>
-                      </TableHead>
-                      <TableHead
-                        className="cursor-pointer"
-                        onClick={() => handleSort("last_visit")}
-                      >
-                        <div className="flex items-center gap-1">
-                          Last Visit
-                          <ArrowUpDown className="h-3 w-3" />
-                        </div>
-                      </TableHead>
-                      <TableHead>
-                        <div className="flex items-center gap-1">
-                          Status
-                        </div>
-                      </TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {isLoading ? (
-                      <TableRow>
-                        <TableCell
-                          colSpan={5}
-                          className="h-24 text-center"
-                        >
-                          <div className="flex justify-center">
-                            <div className="animate-spin h-8 w-8 border-4 border-teal-500 border-t-transparent rounded-full"></div>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ) : sortedAndFilteredPatients.length === 0 ? (
-                      <TableRow>
-                        <TableCell
-                          colSpan={5}
-                          className="h-24 text-center"
-                        >
-                          No patients found. Add your first patient to get started.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      sortedAndFilteredPatients.map((patient) => (
-                        <TableRow 
-                          key={patient.id} 
-                          className="group transition-colors hover:bg-teal-50/30 hover:shadow-sm"
-                          onMouseEnter={() => setHoveredRow(patient.id)}
-                          onMouseLeave={() => setHoveredRow(null)}
-                        >
-                          <TableCell>
-                            <div 
-                              className="flex items-center gap-3 cursor-pointer"
-                              onClick={() => navigate(`/doctor/patients/${patient.id}`)}
-                            >
-                              <Avatar className="h-8 w-8 bg-teal-100">
-                                <AvatarFallback className="text-xs font-medium text-teal-700">
-                                  {getPatientInitials(patient.name)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <span className="font-medium text-gray-900 hover:text-teal-600 transition-colors">
-                                {patient.name}
-                              </span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-gray-600">{patient.email}</TableCell>
-                          <TableCell className="text-gray-600">
-                            {format(new Date(patient.last_visit), "MMM d, yyyy")}
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={patient.status === "active" ? "default" : "outline"}
-                              className={patient.status === "active" ? "bg-teal-500 hover:bg-teal-600" : "text-gray-600"}
-                            >
-                              {patient.status === "active" ? "Active" : "Closed"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className={`flex justify-end gap-1 ${hoveredRow === patient.id ? 'opacity-100' : 'opacity-0 md:group-hover:opacity-100'} transition-opacity`}>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => navigate(`/doctor/patients/${patient.id}`)}
-                                title="Edit patient"
-                              >
-                                <Edit className="h-4 w-4 text-gray-500" />
-                              </Button>
-                              
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => handleToggleStatus(patient.id, patient.status)}
-                                title={patient.status === "active" ? "Close case" : "Reopen case"}
-                              >
-                                {patient.status === "active" ? (
-                                  <ToggleRight className="h-4 w-4 text-teal-500" />
-                                ) : (
-                                  <ToggleLeft className="h-4 w-4 text-gray-500" />
-                                )}
-                              </Button>
-                              
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-gray-500 hover:text-red-600"
-                                onClick={() => handleDeletePatient(patient.id)}
-                                title="Delete patient"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="mt-4 md:mt-0 flex flex-col sm:flex-row gap-3">
+            <Button
+              onClick={() => navigate("/doctor/add-patient")}
+              className="flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Add New Patient
+            </Button>
+          </div>
         </div>
 
-        {/* Delete Confirmation Dialog */}
-        <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Delete Patient</DialogTitle>
-              <DialogDescription>
-                Are you sure you want to delete this patient? This will permanently remove the patient and all associated records.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowDeleteDialog(false);
-                  setPatientToDelete(null);
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={confirmDeletePatient}
-              >
-                Delete
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <div className="mb-6">
+          <Input
+            type="text"
+            placeholder="Search patients, scans, or reports..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="max-w-md"
+            icon={<Search className="h-4 w-4 text-gray-400" />}
+          />
+        </div>
+
+        <Tabs
+          defaultValue="patients"
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="space-y-4"
+        >
+          <TabsList>
+            <TabsTrigger value="patients" className="flex items-center gap-2">
+              <User className="h-4 w-4" />
+              Patients
+            </TabsTrigger>
+            <TabsTrigger value="scans" className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              Scans
+            </TabsTrigger>
+            <TabsTrigger value="reports" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Reports
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Patients Tab */}
+          <TabsContent value="patients">
+            <Card>
+              <CardHeader>
+                <CardTitle>Your Patients</CardTitle>
+                <CardDescription>
+                  View and manage your patient records
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoadingPatients ? (
+                  <div className="flex justify-center py-8">
+                    <div className="animate-spin h-8 w-8 border-4 border-brand-500 border-t-transparent rounded-full"></div>
+                  </div>
+                ) : filteredPatients.length > 0 ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Gender</TableHead>
+                        <TableHead>Date of Birth</TableHead>
+                        <TableHead>Added</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredPatients.map((patient) => (
+                        <TableRow
+                          key={patient.id}
+                          className="cursor-pointer hover:bg-gray-50"
+                          onClick={() => handlePatientClick(patient.id)}
+                        >
+                          <TableCell className="font-medium">
+                            {patient.name}
+                          </TableCell>
+                          <TableCell>{patient.email}</TableCell>
+                          <TableCell>
+                            {patient.gender
+                              ? patient.gender.charAt(0).toUpperCase() +
+                                patient.gender.slice(1)
+                              : "Not specified"}
+                          </TableCell>
+                          <TableCell>
+                            {patient.date_of_birth
+                              ? format(
+                                  new Date(patient.date_of_birth),
+                                  "MMM d, yyyy"
+                                )
+                              : "Not specified"}
+                          </TableCell>
+                          <TableCell>
+                            {format(
+                              new Date(patient.created_at),
+                              "MMM d, yyyy"
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="text-center py-8">
+                    <User className="mx-auto h-12 w-12 text-gray-300" />
+                    <p className="mt-2 text-gray-500">No patients found</p>
+                    {searchTerm && (
+                      <Button
+                        variant="outline"
+                        className="mt-4"
+                        onClick={() => setSearchTerm("")}
+                      >
+                        Clear search
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Scans Tab */}
+          <TabsContent value="scans">
+            <Card>
+              <CardHeader>
+                <CardTitle>Scan Records</CardTitle>
+                <CardDescription>
+                  View all scan records for your patients
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoadingScans ? (
+                  <div className="flex justify-center py-8">
+                    <div className="animate-spin h-8 w-8 border-4 border-brand-500 border-t-transparent rounded-full"></div>
+                  </div>
+                ) : filteredScans.length > 0 ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Patient</TableHead>
+                        <TableHead>Scan Type</TableHead>
+                        <TableHead>Date Taken</TableHead>
+                        <TableHead>Uploaded</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredScans.map((scan) => (
+                        <TableRow
+                          key={scan.id}
+                          className="cursor-pointer hover:bg-gray-50"
+                          onClick={() =>
+                            navigate(`/doctor/patients/${scan.patient_id}`)
+                          }
+                        >
+                          <TableCell className="font-medium">
+                            {scan.patient_name || "Unknown Patient"}
+                          </TableCell>
+                          <TableCell>{scan.scan_type}</TableCell>
+                          <TableCell>
+                            {format(new Date(scan.date_taken), "MMM d, yyyy")}
+                          </TableCell>
+                          <TableCell>
+                            {format(new Date(scan.created_at), "MMM d, yyyy")}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="text-center py-8">
+                    <Calendar className="mx-auto h-12 w-12 text-gray-300" />
+                    <p className="mt-2 text-gray-500">No scan records found</p>
+                    {searchTerm && (
+                      <Button
+                        variant="outline"
+                        className="mt-4"
+                        onClick={() => setSearchTerm("")}
+                      >
+                        Clear search
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Reports Tab */}
+          <TabsContent value="reports">
+            <Card>
+              <CardHeader>
+                <CardTitle>Reports</CardTitle>
+                <CardDescription>
+                  View and manage all patient reports
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoadingReports ? (
+                  <div className="flex justify-center py-8">
+                    <div className="animate-spin h-8 w-8 border-4 border-brand-500 border-t-transparent rounded-full"></div>
+                  </div>
+                ) : filteredReports.length > 0 ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Patient</TableHead>
+                        <TableHead>Scan Type</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Created</TableHead>
+                        <TableHead>Last Updated</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredReports.map((report) => (
+                        <TableRow
+                          key={report.id}
+                          className="cursor-pointer hover:bg-gray-50"
+                          onClick={() => handleReportClick(report.id)}
+                        >
+                          <TableCell className="font-medium">
+                            {report.patient_name || "Unknown Patient"}
+                          </TableCell>
+                          <TableCell>{report.scan_type || "Unknown"}</TableCell>
+                          <TableCell>
+                            {report.status === "published" ? (
+                              <Badge variant="success">Published</Badge>
+                            ) : (
+                              <Badge variant="outline">Draft</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {format(
+                              new Date(report.created_at),
+                              "MMM d, yyyy"
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {format(
+                              new Date(report.updated_at),
+                              "MMM d, yyyy"
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="text-center py-8">
+                    <FileText className="mx-auto h-12 w-12 text-gray-300" />
+                    <p className="mt-2 text-gray-500">No reports found</p>
+                    {searchTerm && (
+                      <Button
+                        variant="outline"
+                        className="mt-4"
+                        onClick={() => setSearchTerm("")}
+                      >
+                        Clear search
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </NewSidebar>
   );

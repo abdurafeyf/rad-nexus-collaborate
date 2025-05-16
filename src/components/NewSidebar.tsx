@@ -24,7 +24,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
-import { toast } from "./ui/use-toast";
+import { useToast } from "./ui/use-toast";
 
 interface SidebarLinkProps {
   to: string;
@@ -97,7 +97,7 @@ const NewSidebar: React.FC<NewSidebarProps> = ({ type, children, className }) =>
         { to: "/doctor/appointments", icon: <Calendar />, label: "Appointments" },
         { to: "/doctor/messages", icon: <MessageSquare />, label: "Messages" },
         { to: "/doctor/ai-chat", icon: <Bot />, label: "AI Assistant" },
-        { to: "/doctor/reports", icon: <FileText />, label: "Reports" },
+        { to: "/doctor/dashboard", icon: <FileText />, label: "Reports" }, // Changed from "/doctor/reports" to "/doctor/dashboard" since that's where reports are accessed from
         { to: "/doctor/settings", icon: <Settings />, label: "Settings" },
       ]
     : [
@@ -111,7 +111,7 @@ const NewSidebar: React.FC<NewSidebarProps> = ({ type, children, className }) =>
   
   // Fix path matching to handle subpaths correctly
   const isPathActive = (path: string) => {
-    if (path === "/doctor/dashboard" && location.pathname === "/doctor/dashboard") {
+    if (path === "/doctor/dashboard" && (location.pathname === "/doctor/dashboard" || location.pathname.startsWith("/doctor/reports"))) {
       return true;
     }
     if (path === "/patient" && (location.pathname === "/patient" || location.pathname === "/patient/dashboard" || location.pathname === "/patient/portal")) {

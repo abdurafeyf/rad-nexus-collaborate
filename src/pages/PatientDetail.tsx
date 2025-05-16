@@ -1,259 +1,213 @@
-
-import React, { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { format } from "date-fns";
+import React, { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  AlertCircle,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
   ArrowLeft,
   Calendar,
-  ChevronRight,
+  FileText,
   MessageSquare,
-  RefreshCw,
+  Plus,
   Upload,
   User,
-  PlusCircle,
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/components/ui/use-toast";
-import NavBar from "@/components/NavBar";
-import Footer from "@/components/Footer";
-import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { format } from "date-fns";
 import NewSidebar from "@/components/NewSidebar";
+import PatientInfoCard from "@/components/doctor/PatientInfoCard";
+import PatientScansList from "@/components/doctor/PatientScansList";
+import PatientReportsList from "@/components/doctor/PatientReportsList";
+import { useQuery } from "@tanstack/react-query";
 
-// Patient type definition
 type Patient = {
   id: string;
   name: string;
   email: string;
-  date_of_birth: string | null;
-  gender: string | null;
-  notes: string | null;
-  status: "active" | "passive";
-  last_visit: string;
+  date_of_birth: string;
+  gender: string;
+  phone_number: string;
+  address: string;
+  medical_history: string;
   created_at: string;
-};
-
-// Scan record type definition
-type ScanRecord = {
-  id: string;
-  patient_id: string;
-  date_taken: string;
-  file_url: string | null;
-  scan_type: string;
-  created_at: string;
-};
-
-// Report type definition
-type Report = {
-  id: string;
-  scan_record_id: string;
-  patient_id: string;
-  content: string;
-  status: "draft" | "published";
-  created_at: string;
-  published_at: string | null;
 };
 
 const PatientDetail = () => {
   const { patientId } = useParams<{ patientId: string }>();
-  const { toast } = useToast();
   const navigate = useNavigate();
-  
-  const [patient, setPatient] = useState<Patient | null>(null);
-  const [scanRecords, setScanRecords] = useState<ScanRecord[]>([]);
-  const [reports, setReports] = useState<Report[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isNotesDialogOpen, setIsNotesDialogOpen] = useState(false);
-  const [updatedNotes, setUpdatedNotes] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState("overview");
 
   // Fetch patient data
-  const fetchPatientData = async () => {
-    if (!patientId) {
-      setErrorMessage("Patient ID is missing");
-      setIsLoading(false);
-      return;
-    }
-    
-    setIsLoading(true);
-    
-    try {
-      // Fetch patient info
-      const { data: patientData, error: patientError } = await supabase
+  const {
+    data: patient,
+    isLoading: isLoadingPatient,
+    error: patientError,
+  } = useQuery({
+    queryKey: ["patient", patientId],
+    queryFn: async () => {
+      if (!patientId) throw new Error("No patient ID provided");
+
+      // For demo purposes
+      if (patientId === "demo-patient-1") {
+        return {
+          id: "demo-patient-1",
+          name: "John Doe",
+          email: "john.doe@example.com",
+          date_of_birth: "1985-05-15",
+          gender: "Male",
+          phone_number: "(555) 123-4567",
+          address: "123 Main St, Anytown, USA",
+          medical_history: "Hypertension, Asthma",
+          created_at: "2023-01-15T08:30:00Z",
+        };
+      }
+
+      const { data, error } = await supabase
         .from("patients")
         .select("*")
         .eq("id", patientId)
-        .maybeSingle();
+        .single();
 
-      if (patientError) {
-        throw patientError;
+      if (error) throw error;
+      return data as Patient;
+    },
+    enabled: !!patientId,
+  });
+
+  // Fetch patient's scan records
+  const {
+    data: scanRecords,
+    isLoading: isLoadingScans,
+    error: scansError,
+  } = useQuery({
+    queryKey: ["patientScans", patientId],
+    queryFn: async () => {
+      if (!patientId) throw new Error("No patient ID provided");
+
+      // For demo purposes
+      if (patientId === "demo-patient-1") {
+        return [
+          {
+            id: "demo-scan-1",
+            patient_id: "demo-patient-1",
+            file_url: "chest_xray.jpg",
+            scan_type: "X-Ray",
+            body_part: "Chest",
+            date_taken: "2023-05-10T14:30:00Z",
+            notes: "Routine checkup",
+            created_at: "2023-05-10T15:45:00Z",
+          },
+        ];
       }
-      
-      if (!patientData) {
-        setErrorMessage("Patient not found. The patient might have been deleted.");
-        setIsLoading(false);
-        return;
-      }
 
-      setPatient(patientData as Patient);
-      setUpdatedNotes(patientData.notes || "");
-
-      // Fetch scan records
-      const { data: scanData, error: scanError } = await supabase
+      const { data, error } = await supabase
         .from("scan_records")
         .select("*")
         .eq("patient_id", patientId)
-        .order("date_taken", { ascending: false });
+        .order("created_at", { ascending: false });
 
-      if (scanError) {
-        throw scanError;
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!patientId,
+  });
+
+  // Fetch patient's reports
+  const {
+    data: reports,
+    isLoading: isLoadingReports,
+    error: reportsError,
+  } = useQuery({
+    queryKey: ["patientReports", patientId],
+    queryFn: async () => {
+      if (!patientId) throw new Error("No patient ID provided");
+
+      // For demo purposes
+      if (patientId === "demo-patient-1") {
+        return [
+          {
+            id: "demo-report-1",
+            scan_record_id: "demo-scan-1",
+            patient_id: "demo-patient-1",
+            content:
+              "# Radiology Report\n\n## Patient Information\nPatient Name: John Doe\n\n## Analysis\nChest X-ray performed to evaluate for pneumonia.\n\n## Findings\nLungs are clear without focal consolidation, effusion, or pneumothorax. Heart size is normal. No pleural effusion. No acute osseous abnormality.\n\n## Impression\nNo acute cardiopulmonary process identified.",
+            status: "published",
+            created_at: "2023-05-12T10:15:00Z",
+            updated_at: "2023-05-12T14:30:00Z",
+            published_at: "2023-05-12T14:30:00Z",
+          },
+        ];
       }
 
-      setScanRecords(scanData as ScanRecord[]);
-
-      // Fetch reports
-      const { data: reportData, error: reportError } = await supabase
+      const { data, error } = await supabase
         .from("reports")
         .select("*")
         .eq("patient_id", patientId)
         .order("created_at", { ascending: false });
 
-      if (reportError) {
-        throw reportError;
-      }
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!patientId,
+  });
 
-      setReports(reportData as Report[]);
-      setErrorMessage(null);
-      
-    } catch (error: any) {
-      setErrorMessage(`Error fetching patient data: ${error.message}`);
-      toast({
-        title: "Error fetching patient data",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  // Handle errors
   useEffect(() => {
-    fetchPatientData();
-  }, [patientId]);
-
-  // Update patient notes
-  const handleUpdateNotes = async () => {
-    if (!patient) return;
-    
-    setIsSaving(true);
-    
-    try {
-      const { error } = await supabase
-        .from("patients")
-        .update({ notes: updatedNotes })
-        .eq("id", patient.id);
-
-      if (error) {
-        throw error;
-      }
-
-      setPatient({
-        ...patient,
-        notes: updatedNotes,
-      });
-
-      setIsNotesDialogOpen(false);
-      
+    if (patientError) {
       toast({
-        title: "Notes updated",
-        description: "Patient notes have been updated successfully.",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error updating notes",
-        description: error.message,
+        title: "Error loading patient",
+        description: (patientError as Error).message,
         variant: "destructive",
       });
-    } finally {
-      setIsSaving(false);
     }
-  };
 
-  if (isLoading) {
+    if (scansError) {
+      toast({
+        title: "Error loading scans",
+        description: (scansError as Error).message,
+        variant: "destructive",
+      });
+    }
+
+    if (reportsError) {
+      toast({
+        title: "Error loading reports",
+        description: (reportsError as Error).message,
+        variant: "destructive",
+      });
+    }
+  }, [patientError, scansError, reportsError]);
+
+  if (isLoadingPatient) {
     return (
       <NewSidebar type="doctor">
-        <div className="flex min-h-screen flex-col">
-          <main className="flex-grow bg-gray-50">
-            <div className="container py-8">
-              <div className="flex justify-center py-16">
-                <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
-              </div>
-            </div>
-          </main>
+        <div className="container mx-auto py-8 px-4">
+          <div className="flex justify-center py-16">
+            <div className="animate-spin h-8 w-8 border-4 border-brand-500 border-t-transparent rounded-full"></div>
+          </div>
         </div>
       </NewSidebar>
     );
   }
 
-  if (errorMessage || !patient) {
+  if (!patient) {
     return (
       <NewSidebar type="doctor">
-        <div className="flex min-h-screen flex-col">
-          <main className="flex-grow bg-gray-50">
-            <div className="container py-8">
-              <Button
-                onClick={() => navigate("/doctor/dashboard")}
-                variant="ghost"
-                className="mb-6 -ml-3"
-              >
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Dashboard
-              </Button>
-              
-              <Alert variant="destructive" className="mb-8">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription>
-                  {errorMessage || "Patient not found"}
-                </AlertDescription>
-              </Alert>
-              
-              <div className="flex flex-col items-center py-16">
-                <h2 className="mb-4 text-2xl font-bold">Patient Not Found</h2>
-                <div className="flex space-x-4">
-                  <Button
-                    onClick={() => navigate("/doctor/dashboard")}
-                    variant="outline"
-                  >
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Back to Dashboard
-                  </Button>
-                  
-                  <Button
-                    onClick={() => navigate("/doctor/add-patient")}
-                    variant="default"
-                  >
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Add New Patient
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </main>
+        <div className="container mx-auto py-8 px-4">
+          <div className="text-center py-16">
+            <h2 className="text-2xl font-bold mb-4">Patient Not Found</h2>
+            <Button onClick={() => navigate("/doctor/dashboard")}>
+              Return to Dashboard
+            </Button>
+          </div>
         </div>
       </NewSidebar>
     );
@@ -261,275 +215,204 @@ const PatientDetail = () => {
 
   return (
     <NewSidebar type="doctor">
-      <div className="flex min-h-screen flex-col">
-        <main className="flex-grow bg-gray-50">
-          <div className="container py-8">
-            {/* Back navigation */}
+      <div className="container mx-auto py-8 px-4">
+        <Button
+          variant="ghost"
+          onClick={() => navigate("/doctor/dashboard")}
+          className="mb-6 -ml-3"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Dashboard
+        </Button>
+
+        <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold mb-1">{patient.name}</h1>
+            <p className="text-gray-500">Patient ID: {patient.id}</p>
+          </div>
+
+          <div className="mt-4 md:mt-0 space-x-3">
             <Button
-              onClick={() => navigate("/doctor/dashboard")}
-              variant="ghost"
-              className="mb-6 -ml-3"
+              variant="outline"
+              onClick={() => navigate(`/doctor/patients/${patientId}/chat`)}
             >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Dashboard
+              <MessageSquare className="mr-2 h-4 w-4" />
+              Message Patient
             </Button>
+            <Button onClick={() => navigate(`/doctor/patients/${patientId}/scan`)}>
+              <Plus className="mr-2 h-4 w-4" />
+              New Scan
+            </Button>
+          </div>
+        </div>
 
-            {/* Patient header */}
-            <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h1 className="text-3xl font-bold tracking-tight">{patient.name}</h1>
-                <p className="text-muted-foreground">{patient.email}</p>
-                
-                <div className="mt-2 flex items-center gap-2">
-                  <Badge variant={patient.status === "active" ? "default" : "outline"}>
-                    {patient.status === "active" ? "Active Case" : "Closed Case"}
-                  </Badge>
-                </div>
-              </div>
+        <Tabs
+          defaultValue="overview"
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="space-y-6"
+        >
+          <TabsList className="bg-white border">
+            <TabsTrigger value="overview" className="data-[state=active]:bg-gray-100">
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="scans" className="data-[state=active]:bg-gray-100">
+              Scans
+            </TabsTrigger>
+            <TabsTrigger value="reports" className="data-[state=active]:bg-gray-100">
+              Reports
+            </TabsTrigger>
+            <TabsTrigger value="history" className="data-[state=active]:bg-gray-100">
+              Medical History
+            </TabsTrigger>
+          </TabsList>
 
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  onClick={() => navigate(`/doctor/patients/${patientId}/chat`)}
-                  variant="outline"
-                  className="flex items-center gap-2"
-                >
-                  <MessageSquare className="h-4 w-4" />
-                  Chat
-                </Button>
-                <Button
-                  onClick={() => navigate(`/doctor/patients/${patientId}/scan/upload`)}
-                  variant="default"
-                  className="flex items-center gap-2"
-                >
-                  <Upload className="h-4 w-4" />
-                  Upload Scan
-                </Button>
-              </div>
+          <TabsContent value="overview" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <PatientInfoCard patient={patient} />
+
+              <Card className="md:col-span-2">
+                <CardHeader>
+                  <CardTitle>Recent Activity</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {reports && reports.length > 0 ? (
+                      reports.slice(0, 3).map((report) => (
+                        <div
+                          key={report.id}
+                          className="flex items-start p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
+                          onClick={() => navigate(`/doctor/reports/${report.id}`)}
+                        >
+                          <div className="h-10 w-10 rounded-full bg-brand-100 flex items-center justify-center mr-3">
+                            <FileText className="h-5 w-5 text-brand-600" />
+                          </div>
+                          <div>
+                            <p className="font-medium">
+                              Report {report.status === "published" ? "Published" : "Created"}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              {format(
+                                new Date(
+                                  report.status === "published"
+                                    ? report.published_at || report.updated_at
+                                    : report.created_at
+                                ),
+                                "PPP"
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-gray-500">No recent activity</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
 
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-              {/* Left column: Patient info */}
-              <div className="space-y-6">
-                {/* Basic info card */}
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg font-medium">Patient Information</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div>
-                        <div className="flex items-center text-sm text-muted-foreground">
-                          <User className="mr-2 h-4 w-4" />
-                          Patient ID
-                        </div>
-                        <div className="font-medium">{patient.id}</div>
-                      </div>
-                      
-                      {patient.gender && (
-                        <div>
-                          <div className="text-sm text-muted-foreground">Gender</div>
-                          <div className="font-medium capitalize">{patient.gender}</div>
-                        </div>
-                      )}
-                      
-                      {patient.date_of_birth && (
-                        <div>
-                          <div className="flex items-center text-sm text-muted-foreground">
-                            <Calendar className="mr-2 h-4 w-4" />
-                            Date of Birth
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Recent Scans</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {scanRecords && scanRecords.length > 0 ? (
+                      scanRecords.slice(0, 3).map((scan) => (
+                        <div
+                          key={scan.id}
+                          className="flex items-start p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
+                          onClick={() => navigate(`/doctor/scans/${scan.id}`)}
+                        >
+                          <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
+                            <Upload className="h-5 w-5 text-blue-600" />
                           </div>
-                          <div className="font-medium">
-                            {format(new Date(patient.date_of_birth), "PPP")}
+                          <div>
+                            <p className="font-medium">{scan.scan_type}</p>
+                            <p className="text-sm text-gray-500">
+                              {format(new Date(scan.date_taken || scan.created_at), "PPP")}
+                            </p>
                           </div>
                         </div>
-                      )}
-                      
-                      <div>
-                        <div className="flex items-center text-sm text-muted-foreground">
-                          <Calendar className="mr-2 h-4 w-4" />
-                          Last Visit
-                        </div>
-                        <div className="font-medium">
-                          {format(new Date(patient.last_visit), "PPP")}
-                        </div>
-                      </div>
+                      ))
+                    ) : (
+                      <p className="text-gray-500">No scans available</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
 
-                      <Separator />
-                      
+              <Card>
+                <CardHeader>
+                  <CardTitle>Upcoming Appointments</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex items-start p-3 border rounded-lg">
+                      <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center mr-3">
+                        <Calendar className="h-5 w-5 text-green-600" />
+                      </div>
                       <div>
-                        <div className="mb-2 flex items-center justify-between">
-                          <div className="text-sm text-muted-foreground">Notes</div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 text-xs"
-                            onClick={() => setIsNotesDialogOpen(true)}
-                          >
-                            Edit
-                          </Button>
-                        </div>
-                        <div className="rounded-md bg-muted/50 p-3 text-sm">
-                          {patient.notes ? (
-                            <p className="whitespace-pre-wrap">{patient.notes}</p>
-                          ) : (
-                            <p className="text-muted-foreground">No notes available.</p>
-                          )}
-                        </div>
+                        <p className="font-medium">Follow-up Consultation</p>
+                        <p className="text-sm text-gray-500">
+                          {format(new Date().setDate(new Date().getDate() + 14), "PPP")}
+                        </p>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Right column: Reports and Scan Records */}
-              <div className="lg:col-span-2 space-y-6">
-                {/* Reports */}
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg font-medium">Radiology Reports</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {reports.length === 0 ? (
-                      <div className="py-8 text-center">
-                        <p className="text-muted-foreground">
-                          No radiology reports available for this patient.
-                        </p>
-                        <Button
-                          variant="outline"
-                          className="mt-4"
-                          onClick={() => navigate(`/doctor/patients/${patientId}/scan/upload`)}
-                        >
-                          Upload Scan & Generate Report
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {reports.map((report) => (
-                          <div
-                            key={report.id}
-                            className="flex items-center justify-between rounded-lg border p-4"
-                          >
-                            <div>
-                              <div className="font-medium">
-                                Report from {format(new Date(report.created_at), "PPP")}
-                              </div>
-                              <div className="flex items-center text-sm">
-                                <Badge 
-                                  variant={report.status === "published" ? "default" : "outline"} 
-                                  className="mr-2"
-                                >
-                                  {report.status === "published" ? "Published" : "Draft"}
-                                </Badge>
-                                {report.published_at && (
-                                  <span className="text-muted-foreground">
-                                    Published on {format(new Date(report.published_at), "PPP")}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => navigate(`/doctor/reports/${report.id}/review`)}
-                            >
-                              View
-                              <ChevronRight className="ml-1 h-4 w-4" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Scan Records */}
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg font-medium">Scan Records</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {scanRecords.length === 0 ? (
-                      <div className="py-8 text-center">
-                        <p className="text-muted-foreground">
-                          No scan records available for this patient.
-                        </p>
-                        <Button
-                          variant="outline"
-                          className="mt-4"
-                          onClick={() => navigate(`/doctor/patients/${patientId}/scan/upload`)}
-                        >
-                          Upload New Scan
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {scanRecords.map((record) => (
-                          <div
-                            key={record.id}
-                            className="flex items-center justify-between rounded-lg border p-4"
-                          >
-                            <div>
-                              <div className="font-medium">
-                                {record.scan_type} from {format(new Date(record.date_taken), "PPP")}
-                              </div>
-                              <div className="text-sm text-muted-foreground">
-                                ID: {record.id}
-                              </div>
-                            </div>
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => navigate(`/doctor/scan-records/${record.id}`)}
-                            >
-                              View
-                              <ChevronRight className="ml-1 h-4 w-4" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-          </div>
-        </main>
-        
-        {/* Notes editing dialog */}
-        <Dialog open={isNotesDialogOpen} onOpenChange={setIsNotesDialogOpen}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Edit Patient Notes</DialogTitle>
-              <DialogDescription>
-                Update the patient's notes below.
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="py-4">
-              <Textarea
-                value={updatedNotes || ""}
-                onChange={(e) => setUpdatedNotes(e.target.value)}
-                className="min-h-[200px]"
-                placeholder="Enter patient notes here..."
-              />
-            </div>
-            
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setIsNotesDialogOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleUpdateNotes}
-                disabled={isSaving}
-              >
-                {isSaving ? "Saving..." : "Save Changes"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          </TabsContent>
+
+          <TabsContent value="scans">
+            <PatientScansList
+              patientId={patientId || ""}
+              scans={scanRecords || []}
+              isLoading={isLoadingScans}
+            />
+          </TabsContent>
+
+          <TabsContent value="reports">
+            <PatientReportsList
+              patientId={patientId || ""}
+              reports={reports || []}
+              isLoading={isLoadingReports}
+              onViewReport={(reportId) => navigate(`/doctor/reports/${reportId}`)}
+            />
+          </TabsContent>
+
+          <TabsContent value="history">
+            <Card>
+              <CardHeader>
+                <CardTitle>Medical History</CardTitle>
+                <CardDescription>
+                  Patient's medical history and previous conditions
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="font-medium text-lg mb-2">Conditions</h3>
+                    <p>{patient.medical_history || "No medical history recorded"}</p>
+                  </div>
+
+                  <div>
+                    <h3 className="font-medium text-lg mb-2">Allergies</h3>
+                    <p>No known allergies</p>
+                  </div>
+
+                  <div>
+                    <h3 className="font-medium text-lg mb-2">Medications</h3>
+                    <p>No current medications</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </NewSidebar>
   );
