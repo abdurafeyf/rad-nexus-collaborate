@@ -87,6 +87,7 @@ const DoctorDashboard = () => {
   } = useQuery({
     queryKey: ["doctorPatients", user?.id],
     queryFn: async () => {
+      console.log("Fetching patients for doctor ID:", user?.id);
       const { data, error } = await supabase
         .from("patients")
         .select("*")
@@ -94,9 +95,11 @@ const DoctorDashboard = () => {
         .order("created_at", { ascending: false });
 
       if (error) {
+        console.error("Error fetching patients:", error);
         throw new Error(error.message);
       }
-
+      
+      console.log("Fetched patients:", data);
       return data as Patient[];
     },
     enabled: !!user?.id,
@@ -110,6 +113,7 @@ const DoctorDashboard = () => {
   } = useQuery({
     queryKey: ["doctorScans", user?.id],
     queryFn: async () => {
+      console.log("Fetching scan records for doctor ID:", user?.id);
       const { data, error } = await supabase
         .from("scan_records")
         .select(`
@@ -122,9 +126,11 @@ const DoctorDashboard = () => {
         .order("created_at", { ascending: false });
 
       if (error) {
+        console.error("Error fetching scan records:", error);
         throw new Error(error.message);
       }
 
+      console.log("Fetched scan records:", data);
       return data.map((record) => ({
         ...record,
         patient_name: record.patients?.name,
@@ -141,6 +147,7 @@ const DoctorDashboard = () => {
   } = useQuery({
     queryKey: ["doctorReports", user?.id],
     queryFn: async () => {
+      console.log("Fetching reports for doctor ID:", user?.id);
       // First get all scan records by this doctor
       const { data: doctorScans, error: scansError } = await supabase
         .from("scan_records")
@@ -148,9 +155,11 @@ const DoctorDashboard = () => {
         .eq("doctor_id", user?.id);
 
       if (scansError) {
+        console.error("Error fetching doctor's scan records:", scansError);
         throw new Error(scansError.message);
       }
 
+      console.log("Doctor scan IDs:", doctorScans);
       if (!doctorScans.length) {
         return [];
       }
@@ -176,9 +185,11 @@ const DoctorDashboard = () => {
         .order("created_at", { ascending: false });
 
       if (reportsError) {
+        console.error("Error fetching reports:", reportsError);
         throw new Error(reportsError.message);
       }
 
+      console.log("Fetched reports:", reportData);
       return reportData.map((report) => ({
         ...report,
         scan_type: report.scan_records?.scan_type,
@@ -190,7 +201,8 @@ const DoctorDashboard = () => {
 
   // Filter data based on search term
   const filteredPatients = patients.filter((patient) =>
-    patient.name.toLowerCase().includes(searchTerm.toLowerCase())
+    patient.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    patient.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const filteredScans = scanRecords.filter(
@@ -230,7 +242,7 @@ const DoctorDashboard = () => {
         variant: "destructive",
       });
     }
-  }, [patientsError, scansError, reportsError]);
+  }, [patientsError, scansError, reportsError, toast]);
 
   // Navigate to patient details
   const handlePatientClick = (patientId: string) => {
@@ -481,7 +493,7 @@ const DoctorDashboard = () => {
                           <TableCell>{report.scan_type || "Unknown"}</TableCell>
                           <TableCell>
                             {report.status === "published" ? (
-                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                              <Badge className="bg-green-100 text-green-800 hover:bg-green-200">
                                 Published
                               </Badge>
                             ) : (

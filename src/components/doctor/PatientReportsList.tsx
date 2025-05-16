@@ -24,7 +24,7 @@ type Report = {
   scan_record_id: string;
   patient_id: string;
   content: string;
-  status: string; // Changed from "draft" | "published" to string to match the database
+  status: string; // Using string instead of union type to match the database
   created_at: string;
   updated_at: string;
   published_at: string | null;
@@ -77,7 +77,7 @@ const PatientReportsList: React.FC<PatientReportsListProps> = ({
                   <TableCell className="font-medium">{report.scan_type || "Unknown"}</TableCell>
                   <TableCell>
                     {report.status === "published" ? (
-                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                      <Badge className="bg-green-100 text-green-800 hover:bg-green-200">
                         Published
                       </Badge>
                     ) : (
